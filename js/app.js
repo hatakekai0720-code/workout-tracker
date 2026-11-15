@@ -3,6 +3,9 @@ import { mountHome } from './views/home.js';
 import { mountCalendar } from './views/calendar.js';
 import { mountBody } from './views/body.js';
 import { mountStats } from './views/stats.js';
+import { mountSettings } from './views/settings.js';
+import { initTheme } from './theme.js';
+import { initTimer, refreshTimers } from './timer.js';
 
 initStore();
 window.Chart.defaults.font.family = "'Noto Sans JP', sans-serif";
@@ -12,6 +15,7 @@ const views = {
   calendar: mountCalendar(document.getElementById('view-calendar')),
   stats: mountStats(document.getElementById('view-stats')),
   body: mountBody(document.getElementById('view-body')),
+  settings: mountSettings(document.getElementById('view-settings')),
 };
 
 let shown = null;
@@ -26,10 +30,13 @@ function show(name) {
     else a.removeAttribute('aria-current');
   }
   views[name].render();
+  refreshTimers();
   if (name !== shown) window.scrollTo(0, 0);
   shown = name;
 }
 
+initTimer();
+initTheme(() => shown && show(shown));
 window.addEventListener('hashchange', () => show(location.hash.slice(1)));
 show(location.hash.slice(1));
 

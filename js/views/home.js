@@ -1,12 +1,14 @@
 // ホーム: 今週のまとめ・継続日数、次のメニュー提案、自己ベスト。
 import { getState, getExercise, upsertEntry, BODY_PARTS } from '../store.js';
-import { toDateStr, formatDateJa, formatShortDate, describePlan } from '../calc.js';
+import { toDateStr, formatDateJa, formatShortDate, describePlan, dayNumber } from '../calc.js';
+import { timerHtml, refreshTimers } from '../timer.js';
 import { computePRs, streak, weekSummary, formatPR, PR_LABELS } from '../insights.js';
 import { buildSuggestions, defaultTargetDate } from '../suggest.js';
 import { openEntryForm } from './entry.js';
 import { esc, toast } from '../util.js';
 
 const RECENT_PR_COUNT = 5;
+const BACKUP_REMIND_DAYS = 14;
 const round1 = (n) => (Math.round(n * 10) / 10).toString();
 
 export function mountHome(root) {
@@ -112,14 +114,28 @@ export function mountHome(root) {
     </section>`;
   }
 
+  // 記録があるのに長くバックアップしていなければ知らせる
+  function backupHtml(state, today) {
+    if (!state.entries.length && !state.bodyLogs.length) return '';
+    const last = state.settings.lastBackupAt;
+    const days = last ? dayNumber(today) - dayNumber(last) : null;
+    if (days !== null && days < BACKUP_REMIND_DAYS) return '';
+    return `<a class="notice" href="#settings">💾 ${
+      days === null ? 'まだバックアップしていません' : `最後のバックアップから${days}日たちました`
+    }。設定から書き出せます ›</a>`;
+  }
+
   function render() {
     const state = getState();
     const today = toDateStr(new Date());
     root.innerHTML = `
       <header class="page-head"><h1>ホーム</h1><span class="page-date">${formatDateJa(today)}</span></header>
+      ${backupHtml(state, today)}
       ${summaryHtml(state, today)}
+      <section class="card"><h2>インターバルタイマー</h2>${timerHtml()}</section>
       ${suggestHtml(state, today)}
       ${prHtml(state)}`;
+    refreshTimers();
   }
 
   const planned = (s) => ({ id: null, date: ui.target, exerciseId: s.exercise.id, status: 'planned', plan: s.plan, actual: null, memo: '' });

@@ -9,6 +9,7 @@ import {
   describeActual,
 } from '../calc.js';
 import { computePRs, PR_LABELS } from '../insights.js';
+import { timerHtml, refreshTimers } from '../timer.js';
 import { esc, toast } from '../util.js';
 
 const MAX_SETS = 20;
@@ -233,8 +234,10 @@ function render() {
         <p class="error" role="alert" hidden></p>
         ${session.entryId ? '<button type="button" class="btn-danger wide" data-action="delete">このメニューを削除</button>' : ''}
       </div>
+      ${ex.kind === 'strength' ? `<footer class="sheet-foot">${timerHtml()}</footer>` : ''}
     </form>`;
   dlg.querySelector('.sheet-body').scrollTop = scroll;
+  refreshTimers();
 }
 
 function setPath(path, value) {

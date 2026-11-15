@@ -23,7 +23,7 @@ function defaultState() {
   return {
     schemaVersion: SCHEMA_VERSION,
     profile: { heightCm: null, targetWeightKg: null },
-    settings: { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5 },
+    settings: { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: null },
     exercises: [
       ex('ex_squat', 'ダンベルスクワット', 'strength', 'legs', 'weighted'),
       ex('ex_row', 'ロウ', 'strength', 'back', 'weighted'),
@@ -46,7 +46,8 @@ export function initStore() {
     try {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.entries) && Array.isArray(parsed.exercises)) {
-        state = { ...defaultState(), ...parsed };
+        const base = defaultState();
+        state = { ...base, ...parsed, settings: { ...base.settings, ...parsed.settings } };
         // 集計は日付の昇順を前提にしている
         state.bodyLogs.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
         return;
@@ -103,5 +104,37 @@ export function upsertBodyLog(log) {
 
 export function deleteBodyLog(date) {
   state.bodyLogs = state.bodyLogs.filter((l) => l.date !== date);
+  save();
+}
+
+// ---- 設定・種目マスタ・バックアップ ----
+
+export function setSettings(patch) {
+  Object.assign(state.settings, patch);
+  save();
+}
+
+export const exerciseInUse = (id) => state.entries.some((e) => e.exerciseId === id);
+
+export function saveExercise(ex) {
+  const i = state.exercises.findIndex((x) => x.id === ex.id);
+  if (i >= 0) state.exercises[i] = ex;
+  else state.exercises.push({ ...ex, id: `ex_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}` });
+  save();
+}
+
+// 記録のある種目は消さずに archived にすること(呼び出し側で判定する)
+export function deleteExercise(id) {
+  state.exercises = state.exercises.filter((x) => x.id !== id);
+  save();
+}
+
+export function exportJson() {
+  return JSON.stringify({ app: 'workout-tracker', exportedAt: new Date().toISOString(), ...state }, null, 2);
+}
+
+// 検証済みのバックアップ(backup.js の parseBackup の結果)で丸ごと置き換える
+export function replaceState(next) {
+  state = next;
   save();
 }

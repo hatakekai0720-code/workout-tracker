@@ -3,8 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="color-scheme" content="light dark">
   <title>トレーニング記録</title>
+  <script>
+    // 保存済みのテーマを描画前に反映する(js/theme.js と同じ判定)
+    (function () {
+      var t;
+      try { t = JSON.parse(localStorage.getItem('workoutTracker.data')).settings.theme; } catch (e) {}
+      if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.dataset.theme = t;
+    })();
+  </script>
   <link rel="stylesheet" href="vendor/noto-sans-jp/noto-sans-jp.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -14,6 +22,7 @@
     <section id="view-calendar" hidden></section>
     <section id="view-stats" hidden></section>
     <section id="view-body" hidden></section>
+    <section id="view-settings" hidden></section>
   </main>
 
   <nav class="tabbar" aria-label="メニュー">
@@ -33,9 +42,14 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="3.2"/><path d="M5.5 20.5c0-4 2.8-6.5 6.5-6.5s6.5 2.5 6.5 6.5"/></svg>
       体
     </a>
+    <a href="#settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="16" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+      設定
+    </a>
   </nav>
 
   <dialog id="entry-dialog"></dialog>
+  <dialog id="exercise-dialog"></dialog>
   <div id="toast" role="status" aria-live="polite"></div>
   <script src="vendor/chart.umd.min.js"></script>
   <script type="module" src="js/app.js"></script>
