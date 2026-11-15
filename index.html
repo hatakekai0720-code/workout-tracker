@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>トレーニング記録</title>
+  <meta name="theme-color" content="#0b55d6">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="トレ記録">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <script>
+    // 保存済みのテーマを描画前に反映する(js/theme.js と同じ判定)
+    (function () {
+      var t;
+      try { t = JSON.parse(localStorage.getItem('workoutTracker.data')).settings.theme; } catch (e) {}
+      if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.dataset.theme = t;
+    })();
+  </script>
+  <link rel="stylesheet" href="vendor/noto-sans-jp/noto-sans-jp.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main id="app">
+    <section id="view-home"></section>
+    <section id="view-calendar" hidden></section>
+    <section id="view-stats" hidden></section>
+    <section id="view-body" hidden></section>
+    <section id="view-settings" hidden></section>
+  </main>
+
+  <nav class="tabbar" aria-label="メニュー">
+    <a href="#home" class="start">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7M6.5 9.5V20h11V9.5"/></svg>
+      ホーム
+    </a>
+    <a href="#calendar">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+      カレンダー
+    </a>
+    <a href="#stats">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20v-7M12 20V5M19 20v-10"/></svg>
+      グラフ
+    </a>
+    <a href="#body">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="3.2"/><path d="M5.5 20.5c0-4 2.8-6.5 6.5-6.5s6.5 2.5 6.5 6.5"/></svg>
+      体
+    </a>
+    <a href="#settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="16" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+      設定
+    </a>
+  </nav>
+
+  <dialog id="entry-dialog"></dialog>
+  <dialog id="exercise-dialog"></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="vendor/chart.umd.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
