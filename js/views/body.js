@@ -90,8 +90,8 @@ export function mountBody(root) {
       </section>
 
       <section class="card">
-        <div class="card-head">
-          <h2>体重の推移</h2>
+        <h2>体重の推移</h2>
+        <div class="card-tools">
           <div class="segmented" role="group" aria-label="期間">
             ${PERIODS.map(
               (p) =>

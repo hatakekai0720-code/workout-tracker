@@ -1,6 +1,7 @@
 // 月カレンダーと、選んだ日のメニュー一覧。
 import { getState, getExercise, BODY_PARTS } from '../store.js';
 import { toDateStr, monthGrid, formatDateJa, describePlan, describeActual } from '../calc.js';
+import { computePRs, runCalories, PR_LABELS } from '../insights.js';
 import { openEntryForm } from './entry.js';
 import { esc } from '../util.js';
 
@@ -25,19 +26,25 @@ export function mountCalendar(root) {
     return shown.join('');
   }
 
-  function dayList(entries) {
+  function dayList(entries, prByEntry) {
     if (!entries.length) return '<p class="empty">メニューはまだありません</p>';
     return `<ul class="entry-list">${entries
       .map((e) => {
         const ex = getExercise(e.exerciseId);
         const done = e.status === 'done';
-        const summary = done ? describeActual(ex, e.actual) : describePlan(ex, e.plan);
+        let summary = done ? describeActual(ex, e.actual) : describePlan(ex, e.plan);
+        if (done && ex.kind === 'run') {
+          const kcal = runCalories(getState().bodyLogs, e.date, e.actual.distanceKm);
+          if (kcal != null) summary += ` ・ 約${Math.round(kcal)}kcal`;
+        }
+        const pr = prByEntry.get(e.id);
         const tag = ex.bodyPart ? `<span class="tag">${BODY_PARTS[ex.bodyPart]}</span>` : '';
         return `<li><button type="button" class="entry ${e.status}" data-action="edit" data-id="${e.id}">
           <span class="entry-mark">${done ? '✓' : ''}</span>
           <span class="entry-main">
             <span class="entry-name">${esc(ex.name)}${tag}</span>
             <span class="entry-sub">${done ? '' : '予定 '}${esc(summary)}</span>
+            ${pr ? `<span class="entry-pr">🏆 自己ベスト ${pr.join('・')}</span>` : ''}
           </span>
           <span class="chev">›</span>
         </button></li>`;
@@ -51,6 +58,11 @@ export function mountCalendar(root) {
     for (const e of getState().entries) {
       if (!byDate.has(e.date)) byDate.set(e.date, []);
       byDate.get(e.date).push(e);
+    }
+    const prByEntry = new Map();
+    for (const u of computePRs(getState().entries, getState().exercises).updates) {
+      if (!prByEntry.has(u.entryId)) prByEntry.set(u.entryId, []);
+      prByEntry.get(u.entryId).push(PR_LABELS[u.type]);
     }
     const cells = monthGrid(ui.year, ui.month)
       .flat()
@@ -67,23 +79,25 @@ export function mountCalendar(root) {
       .join('');
 
     root.innerHTML = `
-      <header class="cal-head">
-        <button type="button" class="icon-btn" data-action="prev" aria-label="前の月">‹</button>
-        <h1>${ui.year}年${ui.month + 1}月</h1>
-        <button type="button" class="icon-btn" data-action="next" aria-label="次の月">›</button>
-        <button type="button" class="btn-ghost" data-action="today">今日</button>
-      </header>
-      <div class="weekdays">${['月', '火', '水', '木', '金', '土', '日'].map((w) => `<span>${w}</span>`).join('')}</div>
-      <div class="grid">${cells}</div>
-      <div class="legend">
-        <span><i class="dot strength planned"></i>筋トレ予定</span>
-        <span><i class="dot strength done"></i>実施済み</span>
-        <span><i class="dot run planned"></i>ラン予定</span>
-        <span><i class="dot run done"></i>実施済み</span>
-      </div>
-      <section class="day-panel">
+      <section class="card cal">
+        <header class="cal-head">
+          <button type="button" class="title-btn" data-action="prev" aria-label="前の月">‹</button>
+          <h1>${ui.year}年${ui.month + 1}月</h1>
+          <button type="button" class="title-btn" data-action="next" aria-label="次の月">›</button>
+          <button type="button" class="title-btn text" data-action="today">今日</button>
+        </header>
+        <div class="weekdays">${['月', '火', '水', '木', '金', '土', '日'].map((w) => `<span>${w}</span>`).join('')}</div>
+        <div class="grid">${cells}</div>
+        <div class="legend">
+          <span><i class="dot strength planned"></i>筋トレ予定</span>
+          <span><i class="dot strength done"></i>実施済み</span>
+          <span><i class="dot run planned"></i>ラン予定</span>
+          <span><i class="dot run done"></i>実施済み</span>
+        </div>
+      </section>
+      <section class="card day-panel">
         <h2>${formatDateJa(ui.selected)}</h2>
-        ${dayList(byDate.get(ui.selected) || [])}
+        ${dayList(byDate.get(ui.selected) || [], prByEntry)}
         <button type="button" class="btn-primary wide" data-action="add">＋ メニューを追加</button>
       </section>`;
   }

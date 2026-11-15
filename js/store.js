@@ -71,13 +71,12 @@ export const getEntry = (id) => state.entries.find((e) => e.id === id);
 const newId = () => `e_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 export function upsertEntry(entry) {
-  if (entry.id) {
-    const i = state.entries.findIndex((e) => e.id === entry.id);
-    state.entries[i] = entry;
-  } else {
-    state.entries.push({ ...entry, id: newId() });
-  }
+  const saved = entry.id ? entry : { ...entry, id: newId() };
+  const i = state.entries.findIndex((e) => e.id === saved.id);
+  if (i >= 0) state.entries[i] = saved;
+  else state.entries.push(saved);
   save();
+  return saved.id;
 }
 
 export function deleteEntry(id) {

@@ -1,18 +1,23 @@
 import { initStore } from './store.js';
+import { mountHome } from './views/home.js';
 import { mountCalendar } from './views/calendar.js';
 import { mountBody } from './views/body.js';
 import { mountStats } from './views/stats.js';
 
 initStore();
+window.Chart.defaults.font.family = "'Noto Sans JP', sans-serif";
 
 const views = {
+  home: mountHome(document.getElementById('view-home')),
   calendar: mountCalendar(document.getElementById('view-calendar')),
   stats: mountStats(document.getElementById('view-stats')),
   body: mountBody(document.getElementById('view-body')),
 };
 
+let shown = null;
+
 function show(name) {
-  if (!views[name]) name = 'calendar';
+  if (!views[name]) name = 'home';
   for (const key of Object.keys(views)) {
     document.getElementById(`view-${key}`).hidden = key !== name;
   }
@@ -21,8 +26,12 @@ function show(name) {
     else a.removeAttribute('aria-current');
   }
   views[name].render();
-  window.scrollTo(0, 0);
+  if (name !== shown) window.scrollTo(0, 0);
+  shown = name;
 }
 
 window.addEventListener('hashchange', () => show(location.hash.slice(1)));
 show(location.hash.slice(1));
+
+// グラフの文字は読み込み前のフォントで描かれるので、読み込み後に描き直す
+document.fonts?.ready.then(() => show(location.hash.slice(1)));

@@ -8,7 +8,8 @@ import {
   formatShortDate,
   describeActual,
 } from '../calc.js';
-import { esc } from '../util.js';
+import { computePRs, PR_LABELS } from '../insights.js';
+import { esc, toast } from '../util.js';
 
 const MAX_SETS = 20;
 
@@ -330,7 +331,14 @@ function setup() {
       el.scrollIntoView({ block: 'nearest' });
       return;
     }
-    upsertEntry(entry);
+    const id = upsertEntry(entry);
+    if (entry.status === 'done') {
+      const { entries, exercises } = getState();
+      const types = computePRs(entries, exercises)
+        .updates.filter((u) => u.entryId === id)
+        .map((u) => PR_LABELS[u.type]);
+      if (types.length) toast(`🏆 自己ベスト更新！ ${types.join('・')}`);
+    }
     const { onChange } = session;
     close();
     onChange();
@@ -341,13 +349,13 @@ function setup() {
   });
 }
 
-export function openEntryForm({ date, entryId = null, onChange }) {
+export function openEntryForm({ date, entryId = null, exerciseId = null, onChange }) {
   if (!dlg) setup();
   let model;
   if (entryId) {
     model = modelFromEntry(getEntry(entryId));
   } else {
-    const first = getState().exercises.find((x) => !x.archived);
+    const first = (exerciseId && getExercise(exerciseId)) || getState().exercises.find((x) => !x.archived);
     model = {
       exerciseId: first.id,
       done: false,

@@ -5,16 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
   <title>トレーニング記録</title>
+  <link rel="stylesheet" href="vendor/noto-sans-jp/noto-sans-jp.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <main id="app">
-    <section id="view-calendar"></section>
+    <section id="view-home"></section>
+    <section id="view-calendar" hidden></section>
     <section id="view-stats" hidden></section>
     <section id="view-body" hidden></section>
   </main>
 
   <nav class="tabbar" aria-label="メニュー">
+    <a href="#home" class="start">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7M6.5 9.5V20h11V9.5"/></svg>
+      ホーム
+    </a>
     <a href="#calendar">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
       カレンダー
@@ -30,6 +36,7 @@
   </nav>
 
   <dialog id="entry-dialog"></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
   <script src="vendor/chart.umd.min.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
