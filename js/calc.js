@@ -152,3 +152,104 @@ export function bmi(weightKg, heightCm) {
   if (!(weightKg > 0) || !(heightCm > 0)) return null;
   return weightKg / (heightCm / 100) ** 2;
 }
+
+// ---- 統計 ----
+
+// 推定1RM(Epley 式)。1回ならその重量そのもの。
+export function epley1RM(weightKg, reps) {
+  if (!(reps > 0)) return 0;
+  return reps === 1 ? weightKg : weightKg * (1 + reps / 30);
+}
+
+// その週の月曜日
+export function weekStart(dateStr) {
+  const n = dayNumber(dateStr);
+  return dayNumberToDateStr(n - ((n + 3) % 7)); // 通し日数 0 (1970-01-01) は木曜
+}
+
+// from 〜 to の週(月曜の日付)を空の週も含めて並べる
+export function weekRange(fromWeek, toWeek) {
+  const out = [];
+  for (let n = dayNumber(fromWeek); n <= dayNumber(toWeek); n += 7) out.push(dayNumberToDateStr(n));
+  return out;
+}
+
+// その日以前で最も新しい体重。bodyLogs は日付の昇順。
+export function weightOn(bodyLogs, date) {
+  let w = null;
+  for (const l of bodyLogs) {
+    if (l.date > date) break;
+    w = l.weightKg;
+  }
+  return w;
+}
+
+// 種目の実施済み記録を日ごとにまとめた推移(日付の昇順)。
+// topWeight: 最大重量 / est1RM: 推定1RM / volume: 総挙上量 /
+// totalReps: 合計回数(秒) / bestReps: 1セットの最大回数(秒) / ratio: est1RM ÷ 体重
+export function strengthSeries(entries, exerciseId, bodyLogs = []) {
+  const byDate = new Map();
+  for (const e of entries) {
+    if (e.status !== 'done' || e.exerciseId !== exerciseId || !e.actual?.sets) continue;
+    const sets = e.actual.sets.filter((s) => s.reps > 0);
+    if (!sets.length) continue;
+    if (!byDate.has(e.date)) byDate.set(e.date, []);
+    byDate.get(e.date).push(...sets);
+  }
+  return [...byDate.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([date, sets]) => {
+      const est1RM = Math.max(...sets.map((s) => epley1RM(s.weightKg, s.reps)));
+      const bw = weightOn(bodyLogs, date);
+      return {
+        date,
+        topWeight: Math.max(...sets.map((s) => s.weightKg)),
+        est1RM,
+        volume: sets.reduce((a, s) => a + s.weightKg * s.reps, 0),
+        totalReps: sets.reduce((a, s) => a + s.reps, 0),
+        bestReps: Math.max(...sets.map((s) => s.reps)),
+        ratio: bw ? est1RM / bw : null,
+      };
+    });
+}
+
+// ランの実施済み記録を日ごとにまとめた推移。同じ日に複数回走ったら合算する。
+export function runSeries(entries, runExerciseIds) {
+  const byDate = new Map();
+  for (const e of entries) {
+    if (e.status !== 'done' || !runExerciseIds.has(e.exerciseId) || !e.actual) continue;
+    const cur = byDate.get(e.date) || { distanceKm: 0, durationSec: 0 };
+    cur.distanceKm += e.actual.distanceKm;
+    cur.durationSec += e.actual.durationSec;
+    byDate.set(e.date, cur);
+  }
+  return [...byDate.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([date, r]) => ({ date, ...r, pace: paceSecPerKm(r.distanceKm, r.durationSec) }));
+}
+
+// 週(月曜の日付) → 合計距離
+export function weeklyRunDistance(runs) {
+  const out = new Map();
+  for (const r of runs) {
+    const w = weekStart(r.date);
+    out.set(w, (out.get(w) || 0) + r.distanceKm);
+  }
+  return out;
+}
+
+// 週(月曜の日付) → { 部位: 実施したセット数 }。0回のセットは数えない。
+export function weeklySetsByPart(entries, exercises) {
+  const partOf = new Map(exercises.map((x) => [x.id, x.bodyPart]));
+  const out = new Map();
+  for (const e of entries) {
+    const part = partOf.get(e.exerciseId);
+    if (e.status !== 'done' || !part || !e.actual?.sets) continue;
+    const n = e.actual.sets.filter((s) => s.reps > 0).length;
+    if (!n) continue;
+    const w = weekStart(e.date);
+    if (!out.has(w)) out.set(w, {});
+    out.get(w)[part] = (out.get(w)[part] || 0) + n;
+  }
+  return out;
+}

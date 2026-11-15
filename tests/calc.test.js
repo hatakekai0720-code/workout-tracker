@@ -121,3 +121,98 @@ test('bmi', () => {
   assert.equal(bmi(68, 170).toFixed(1), '23.5');
   assert.equal(bmi(68, null), null);
 });
+
+import {
+  epley1RM,
+  weekStart,
+  weekRange,
+  weightOn,
+  strengthSeries,
+  runSeries,
+  weeklyRunDistance,
+  weeklySetsByPart,
+} from '../js/calc.js';
+
+test('epley1RM', () => {
+  assert.equal(epley1RM(20, 1), 20);
+  assert.equal(epley1RM(20, 10).toFixed(2), '26.67');
+  assert.equal(epley1RM(20, 0), 0);
+});
+
+test('weekStart は月曜を返す', () => {
+  assert.equal(weekStart('2026-11-16'), '2026-11-16'); // 月
+  assert.equal(weekStart('2026-11-22'), '2026-11-16'); // 日
+  assert.equal(weekStart('2026-11-15'), '2026-11-09'); // 日
+  assert.equal(weekStart('2026-01-01'), '2025-12-29'); // 木、年またぎ
+  assert.deepEqual(weekRange('2026-11-02', '2026-11-16'), ['2026-11-02', '2026-11-09', '2026-11-16']);
+});
+
+test('weightOn はその日以前の直近の体重', () => {
+  const logs = [
+    { date: '2026-11-01', weightKg: 70 },
+    { date: '2026-11-05', weightKg: 69 },
+  ];
+  assert.equal(weightOn(logs, '2026-10-31'), null);
+  assert.equal(weightOn(logs, '2026-11-03'), 70);
+  assert.equal(weightOn(logs, '2026-11-05'), 69);
+  assert.equal(weightOn(logs, '2026-12-01'), 69);
+});
+
+const done = (date, exerciseId, sets) => ({ date, exerciseId, status: 'done', actual: { sets: sets.map(([weightKg, reps]) => ({ weightKg, reps })) } });
+
+test('strengthSeries は日ごとに集計する', () => {
+  const entries = [
+    done('2026-11-05', 'sq', [[22.5, 8], [22.5, 0]]),
+    done('2026-11-01', 'sq', [[20, 10], [20, 10], [20, 8]]),
+    done('2026-11-01', 'sq', [[25, 1]]), // 同じ日は合算
+    done('2026-11-01', 'row', [[30, 10]]),
+    { date: '2026-11-06', exerciseId: 'sq', status: 'planned', actual: null },
+    done('2026-11-07', 'sq', [[20, 0]]), // 0回だけの日は除く
+  ];
+  const s = strengthSeries(entries, 'sq', [{ date: '2026-11-03', weightKg: 60 }]);
+  assert.deepEqual(s.map((p) => p.date), ['2026-11-01', '2026-11-05']);
+  assert.equal(s[0].topWeight, 25);
+  assert.equal(s[0].volume, 20 * 28 + 25);
+  assert.equal(s[0].est1RM.toFixed(2), '26.67');
+  assert.equal(s[0].totalReps, 29);
+  assert.equal(s[0].bestReps, 10);
+  assert.equal(s[0].ratio, null); // 体重の記録がまだない
+  assert.equal(s[1].volume, 180);
+  assert.equal(s[1].ratio.toFixed(3), (28.5 / 60).toFixed(3));
+});
+
+test('runSeries と週ごとの合計距離', () => {
+  const run = (date, distanceKm, durationSec) => ({ date, exerciseId: 'run', status: 'done', actual: { distanceKm, durationSec } });
+  const entries = [
+    run('2026-11-10', 5, 1800),
+    run('2026-11-10', 1, 300),
+    run('2026-11-15', 3, 1080),
+    run('2026-11-16', 4, 1440),
+    { date: '2026-11-17', exerciseId: 'run', status: 'planned', plan: { distanceKm: 5 }, actual: null },
+    done('2026-11-10', 'sq', [[20, 10]]),
+  ];
+  const runs = runSeries(entries, new Set(['run']));
+  assert.equal(runs.length, 3);
+  assert.equal(runs[0].distanceKm, 6);
+  assert.equal(runs[0].pace, 350);
+  assert.deepEqual([...weeklyRunDistance(runs)], [['2026-11-09', 9], ['2026-11-16', 4]]);
+});
+
+test('weeklySetsByPart', () => {
+  const exercises = [
+    { id: 'sq', bodyPart: 'legs' },
+    { id: 'row', bodyPart: 'back' },
+    { id: 'pull', bodyPart: 'back' },
+    { id: 'run', bodyPart: null },
+  ];
+  const entries = [
+    done('2026-11-09', 'sq', [[20, 10], [20, 10], [20, 0]]),
+    done('2026-11-11', 'row', [[30, 10], [30, 10]]),
+    done('2026-11-15', 'pull', [[0, 5]]),
+    done('2026-11-16', 'sq', [[20, 10]]),
+    { date: '2026-11-12', exerciseId: 'run', status: 'done', actual: { distanceKm: 5, durationSec: 1800 } },
+  ];
+  const w = weeklySetsByPart(entries, exercises);
+  assert.deepEqual(w.get('2026-11-09'), { legs: 2, back: 3 });
+  assert.deepEqual(w.get('2026-11-16'), { legs: 1 });
+});

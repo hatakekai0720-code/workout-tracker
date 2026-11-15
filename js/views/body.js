@@ -1,13 +1,9 @@
 // プロフィールと体の記録(体重・体脂肪率)、体重グラフ。
 import { getState, setProfile, getBodyLog, upsertBodyLog, deleteBodyLog } from '../store.js';
 import { toDateStr, formatShortDate, formatDateJa, dayNumber, dayNumberToDateStr, movingAverage, bmi } from '../calc.js';
+import { PERIODS, dateTicks } from '../charts.js';
 import { esc } from '../util.js';
 
-const PERIODS = [
-  { key: '1m', label: '1ヶ月', days: 30 },
-  { key: '3m', label: '3ヶ月', days: 90 },
-  { key: 'all', label: '全期間', days: null },
-];
 const LIST_STEP = 14;
 
 const str = (v) => (v == null ? '' : String(v));
@@ -213,12 +209,8 @@ export function mountBody(root) {
             max: xMax,
             grid: { display: false },
             border: { color: c('--line') },
-            ticks: {
-              color: c('--muted'),
-              maxTicksLimit: 5,
-              precision: 0,
-              callback: (v) => (Number.isInteger(v) ? formatShortDate(dayNumberToDateStr(v)) : ''),
-            },
+            afterBuildTicks: dateTicks,
+            ticks: { color: c('--muted'), maxRotation: 0, callback: (v) => formatShortDate(dayNumberToDateStr(v)) },
           },
           y: {
             suggestedMin: Math.floor(Math.min(...ys) - 0.5),

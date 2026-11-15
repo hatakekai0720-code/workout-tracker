@@ -1,11 +1,13 @@
 import { initStore } from './store.js';
 import { mountCalendar } from './views/calendar.js';
 import { mountBody } from './views/body.js';
+import { mountStats } from './views/stats.js';
 
 initStore();
 
 const views = {
   calendar: mountCalendar(document.getElementById('view-calendar')),
+  stats: mountStats(document.getElementById('view-stats')),
   body: mountBody(document.getElementById('view-body')),
 };
 

@@ -47,6 +47,8 @@ export function initStore() {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.entries) && Array.isArray(parsed.exercises)) {
         state = { ...defaultState(), ...parsed };
+        // 集計は日付の昇順を前提にしている
+        state.bodyLogs.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
         return;
       }
       throw new Error('unexpected shape');
