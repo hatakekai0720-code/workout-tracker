@@ -117,3 +117,38 @@ export function describeActual(ex, actual) {
     ex.loadType === 'weighted' ? `${s.weightKg}kg` : s.weightKg > 0 ? `+${s.weightKg}kg` : '自重';
   return sets.map((s) => `${label(s)}×${s.reps}`).join(' / ');
 }
+
+// ---- 体の記録 ----
+
+// 日付 → 通し日数(グラフの横軸や日数差の計算に使う)
+export function dayNumber(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return Math.round(Date.UTC(y, m - 1, d) / 86400000);
+}
+
+export function dayNumberToDateStr(n) {
+  const d = new Date(n * 86400000);
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
+}
+
+export const addDays = (dateStr, n) => dayNumberToDateStr(dayNumber(dateStr) + n);
+
+// 各記録日について、その日を含む直近 days 日間(暦日)の体重の平均。
+// 記録のない日は飛ばして、ある分だけで平均する。logs は日付の昇順。
+export function movingAverage(logs, days = 7) {
+  const out = [];
+  let start = 0;
+  let sum = 0;
+  for (let i = 0; i < logs.length; i++) {
+    sum += logs[i].weightKg;
+    const from = dayNumber(logs[i].date) - (days - 1);
+    while (dayNumber(logs[start].date) < from) sum -= logs[start++].weightKg;
+    out.push({ date: logs[i].date, value: sum / (i - start + 1) });
+  }
+  return out;
+}
+
+export function bmi(weightKg, heightCm) {
+  if (!(weightKg > 0) || !(heightCm > 0)) return null;
+  return weightKg / (heightCm / 100) ** 2;
+}

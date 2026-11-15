@@ -82,3 +82,25 @@ export function deleteEntry(id) {
   state.entries = state.entries.filter((e) => e.id !== id);
   save();
 }
+
+// ---- プロフィール・体の記録 ----
+
+export function setProfile(patch) {
+  Object.assign(state.profile, patch);
+  save();
+}
+
+export const getBodyLog = (date) => state.bodyLogs.find((l) => l.date === date);
+
+// 1日1件。同じ日付は上書きし、日付の昇順を保つ。
+export function upsertBodyLog(log) {
+  state.bodyLogs = state.bodyLogs.filter((l) => l.date !== log.date);
+  state.bodyLogs.push(log);
+  state.bodyLogs.sort((a, b) => (a.date < b.date ? -1 : 1));
+  save();
+}
+
+export function deleteBodyLog(date) {
+  state.bodyLogs = state.bodyLogs.filter((l) => l.date !== date);
+  save();
+}

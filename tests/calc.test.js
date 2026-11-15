@@ -94,3 +94,30 @@ test('describeActual', () => {
   assert.equal(describeActual(timed, { sets: [s(0, 60), s(0, 45)] }), '60・45秒');
   assert.equal(describeActual(run, { distanceKm: 5.2, durationSec: 1872 }), '5.2km ・ 31:12 ・ 6:00/km');
 });
+
+import { dayNumber, dayNumberToDateStr, addDays, movingAverage, bmi } from '../js/calc.js';
+
+test('日付と通し日数の変換', () => {
+  assert.equal(dayNumber('2026-11-16') - dayNumber('2026-11-09'), 7);
+  assert.equal(dayNumberToDateStr(dayNumber('2026-03-01')), '2026-03-01');
+  assert.equal(addDays('2026-02-27', 2), '2026-03-01');
+  assert.equal(addDays('2026-01-01', -1), '2025-12-31');
+});
+
+test('movingAverage は直近7暦日の平均を返す', () => {
+  const logs = [
+    { date: '2026-11-01', weightKg: 70 },
+    { date: '2026-11-02', weightKg: 68 },
+    { date: '2026-11-07', weightKg: 69 },
+    { date: '2026-11-08', weightKg: 67 }, // 11/01 が窓から外れる
+    { date: '2026-11-20', weightKg: 66 }, // 間が空いたら自分だけ
+  ];
+  const avg = movingAverage(logs).map((p) => p.value);
+  assert.deepEqual(avg, [70, 69, 69, 68, 66]);
+  assert.deepEqual(movingAverage([]), []);
+});
+
+test('bmi', () => {
+  assert.equal(bmi(68, 170).toFixed(1), '23.5');
+  assert.equal(bmi(68, null), null);
+});

@@ -122,5 +122,5 @@ export function mountCalendar(root) {
     render();
   });
 
-  render();
+  return { render };
 }
