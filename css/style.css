@@ -477,6 +477,13 @@ select:disabled { opacity: .55; }
 .kv dd .chip { margin-bottom: 2px; }
 .chip.link { min-height: 32px; border-color: var(--btn-line); background: var(--btn); color: var(--text); }
 
+/* 一覧の絞り込み */
+.filters select { padding: 6px 4px; font-size: 14px; }
+.check { display: flex; align-items: center; gap: 8px; min-height: 40px; margin-top: 8px; font-size: 14px; }
+.check input { width: 20px; height: 20px; accent-color: var(--run); }
+.chip.own { border-color: #1f6b1f; background: #2e8b2e; color: #fff; font-weight: 700; }
+.entry-list + h3, .filters + .check, .filters + .hint { margin-top: 14px; }
+
 /* ---- 筋肉マップ ---- */
 .mq-tools { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; min-height: 36px; }
 .mq-tools .btn-ghost { margin-left: auto; min-height: 34px; font-size: 13px; }

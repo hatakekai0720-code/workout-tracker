@@ -13,7 +13,7 @@ import {
 import { toDateStr, formatDateJa } from '../calc.js';
 import { parseBackup } from '../backup.js';
 import { applyTheme } from '../theme.js';
-import { musclesOf, syncCatalog, guideFor, CATEGORIES } from '../guides.js';
+import { musclesOf, syncCatalog, guideFor, isAvailable, ownedEquipment, CATEGORIES, EQUIPMENT } from '../guides.js';
 import { MUSCLES, MUSCLE_KEYS, cleanMuscles } from '../muscles.js';
 import { esc, toast } from '../util.js';
 
@@ -50,7 +50,9 @@ export function mountSettings(root) {
   }
 
   function render() {
-    const { settings, entries, bodyLogs } = getState();
+    const { settings, entries, bodyLogs, exercises } = getState();
+    const owned = ownedEquipment();
+    const active = exercises.filter((x) => !x.archived);
     root.innerHTML = `
       <header class="page-head"><h1>設定</h1></header>
 
@@ -71,6 +73,20 @@ export function mountSettings(root) {
           <input type="number" inputmode="numeric" step="1" min="${MIN_TIMER}" max="${MAX_TIMER}"
             data-field="timerCustomSec" value="${settings.timerCustomSec ?? ''}"></label>
         <p class="error" role="alert" data-timer-error hidden></p>
+      </section>
+
+      <section class="card">
+        <h2>持っている器具</h2>
+        <label class="toggle"><input type="checkbox" data-field="equip-filter" ${owned ? 'checked' : ''}><span>持っている器具で種目を絞り込む</span></label>
+        ${
+          owned
+            ? `<p class="hint">持っている器具をタップして選んでください。選んだ器具でできる種目だけが、記録画面の選択欄と提案に出ます。自重の種目は常に出ます。</p>
+               <div class="chip-picker">${Object.entries(EQUIPMENT)
+                 .map(([k, label]) => `<button type="button" class="chip ${owned.includes(k) ? 'own' : ''}" data-equip="${k}" aria-pressed="${owned.includes(k)}">${owned.includes(k) ? '✓ ' : ''}${label}</button>`)
+                 .join('')}</div>
+               <p class="hint after">今の設定で使える種目: ${active.filter(isAvailable).length} / ${active.length}</p>`
+            : '<p class="hint">オフの間は、すべての種目が表示されます。</p>'
+        }
       </section>
 
       <section class="card">
@@ -290,6 +306,16 @@ export function mountSettings(root) {
   // ---- 設定画面の操作 ----
 
   root.addEventListener('click', (ev) => {
+    const equip = ev.target.closest('[data-equip]');
+    if (equip) {
+      const k = equip.dataset.equip;
+      const owned = ownedEquipment() || [];
+      setSettings({ ownedEquipment: owned.includes(k) ? owned.filter((x) => x !== k) : [...owned, k] });
+      const y = window.scrollY;
+      render();
+      window.scrollTo(0, y);
+      return;
+    }
     const t = ev.target.closest('[data-action]');
     if (!t) return;
     switch (t.dataset.action) {
@@ -315,7 +341,11 @@ export function mountSettings(root) {
 
   root.addEventListener('change', (ev) => {
     const t = ev.target;
-    if (t.dataset.field === 'import-file') {
+    if (t.dataset.field === 'equip-filter') {
+      // オンにした直後は何も選んでいない状態(自重だけ)から始める
+      setSettings({ ownedEquipment: t.checked ? [] : null });
+      render();
+    } else if (t.dataset.field === 'import-file') {
       const file = t.files[0];
       t.value = '';
       if (file) importBackup(file);

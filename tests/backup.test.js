@@ -68,7 +68,7 @@ test('設定の不正な値は既定値に戻す', () => {
   v.settings = { theme: 'pink', timerCustomSec: 2, weightStepKg: 0 };
   v.profile = { heightCm: 'tall' };
   const { state } = parse(v);
-  assert.deepEqual(state.settings, { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: '2026-11-15' });
+  assert.deepEqual(state.settings, { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: '2026-11-15', ownedEquipment: null });
   assert.deepEqual(state.profile, { heightCm: null, targetWeightKg: null });
 });
 
@@ -88,4 +88,13 @@ test('効く筋肉・メモ・自分で書いた解説を復元で残す', () =>
   // 項目のない古いバックアップもそのまま読める
   assert.equal('muscles' in state.exercises[1], false);
   assert.equal('note' in state.exercises[1], false);
+});
+
+test('持っている器具の設定を復元で残す', () => {
+  const v = valid();
+  v.settings.ownedEquipment = ['dumbbell', 'pullup_bar', 'dumbbell', 'jetpack'];
+  assert.deepEqual(parse(v).state.settings.ownedEquipment, ['dumbbell', 'pullup_bar']);
+  v.settings.ownedEquipment = [];
+  assert.deepEqual(parse(v).state.settings.ownedEquipment, []); // 「絞り込むが何も持っていない」は null と区別する
+  assert.equal(parse(valid()).state.settings.ownedEquipment, null);
 });

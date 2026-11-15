@@ -62,15 +62,33 @@ export function exerciseForGuide(guideId) {
   return getState().exercises.find((x) => x.guideId === guideId && !x.archived) || null;
 }
 
+// 種目の器具カテゴリ。自分で追加した種目は 'custom'。
+export const categoryOf = (ex) => guideFor(ex)?.category || (ex.kind === 'run' ? 'run' : 'custom');
+
 // 種目を器具カテゴリごとにまとめる(一覧や選択欄の見出し用)。空のカテゴリは返さない。
 export function groupByCategory(exercises) {
   const groups = [...Object.entries(CATEGORIES), ['custom', CUSTOM_CATEGORY]].map(([key, label]) => ({ key, label, items: [] }));
-  for (const ex of exercises) {
-    const key = guideFor(ex)?.category || (ex.kind === 'run' ? 'run' : 'custom');
-    groups.find((g) => g.key === key).items.push(ex);
-  }
+  for (const ex of exercises) groups.find((g) => g.key === categoryOf(ex)).items.push(ex);
   return groups.filter((g) => g.items.length);
 }
+
+// ---- 持っている器具 ----
+
+// 設定で選んだ器具の一覧。絞り込みを使っていなければ null(すべての種目を出す)。
+export function ownedEquipment() {
+  const owned = getState().settings.ownedEquipment;
+  return Array.isArray(owned) ? owned : null;
+}
+
+// その種目に必要で、持っていない器具(キーの配列)。自分で追加した種目は常に空。
+export function missingEquipment(ex) {
+  const owned = ownedEquipment();
+  if (!owned) return [];
+  return (guideFor(ex)?.equipment || []).filter((k) => !owned.includes(k));
+}
+
+// 持っている器具でできる種目か
+export const isAvailable = (ex) => missingEquipment(ex).length === 0;
 
 // ---- 種目マスタとカタログの統合 ----
 

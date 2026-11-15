@@ -12,6 +12,7 @@ const text = (v) => typeof v === 'string' && v.trim().length > 0;
 const EXPECTED = {
   bodyweight: ['腕立て伏せ', 'ワイドプッシュアップ', 'ダイヤモンドプッシュアップ', 'パイクプッシュアップ', 'ベンチディップス', '自重スクワット',
     'ブルガリアンスクワット', 'ランジ', 'ヒップリフト', 'カーフレイズ', 'プランク', 'サイドプランク', 'クランチ', 'レッグレイズ', 'バーピー'],
+  small: ['懸垂', 'チンアップ', 'ハンギングレッグレイズ', '腹筋ローラー', 'ケトルベルスイング'],
   run: ['ランニング'],
 };
 
@@ -37,6 +38,7 @@ for (const [slug, g] of Object.entries(catalog)) {
     assert.ok(g.category in CATEGORIES);
     for (const k of g.equipment) assert.ok(k in EQUIPMENT, `${k} は器具の一覧にない`);
     if (g.category === 'bodyweight') assert.deepEqual(g.equipment, []);
+    else if (g.category !== 'run') assert.ok(g.equipment.length >= 1, '器具が必要な種目には equipment を入れる');
     assert.ok(g.place in PLACES && g.level in LEVELS);
     assert.ok(g.alternatives.length >= 1);
     for (const a of g.alternatives) {

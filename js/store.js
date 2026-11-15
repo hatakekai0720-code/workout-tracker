@@ -23,7 +23,7 @@ function defaultState() {
   return {
     schemaVersion: SCHEMA_VERSION,
     profile: { heightCm: null, targetWeightKg: null },
-    settings: { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: null },
+    settings: { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: null, ownedEquipment: null },
     exercises: [
       ex('ex_squat', 'ダンベルスクワット', 'strength', 'legs', 'weighted'),
       ex('ex_row', 'ロウ', 'strength', 'back', 'weighted'),

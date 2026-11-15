@@ -198,3 +198,20 @@ test('buildSuggestions: 種目が多くても、部位ごとに最近やった3�
   assert.deepEqual(s.items.map((i) => i.exercise.id), ['legs_a', 'chest_c', 'chest_d', 'chest_a']);
   assert.equal(s.items[0].plan, null);
 });
+
+test('buildSuggestions: 持っている器具でできない種目と、その部位は提案しない', () => {
+  const entries = [
+    lift('2026-11-01', 'sq', [20, 10, 3], [10, 10, 10]),
+    lift('2026-11-02', 'row', [20, 10, 3], [10, 10, 10]),
+    lift('2026-11-02', 'pull', [0, 6, 3], [6, 6, 6]),
+    lift('2026-11-03', 'push', [0, 10, 3], [10, 10, 10]),
+    run('2026-11-03', 5, 1800),
+  ];
+  const state = { entries, exercises: EX, settings: {} };
+  // ダンベルなし: スクワット(脚)とロウが使えない → 脚は候補から消え、背中は懸垂だけ
+  const noDumbbell = (x) => x.id !== 'sq' && x.id !== 'row';
+  const s = buildSuggestions(state, '2026-11-05', noDumbbell);
+  assert.deepEqual(s.items.map((i) => i.exercise.id), ['plank', 'pull', 'run']);
+  // ランもできない設定なら出さない
+  assert.deepEqual(buildSuggestions(state, '2026-11-05', (x) => x.kind !== 'run').items.map((i) => i.exercise.id), ['plank', 'sq']);
+});

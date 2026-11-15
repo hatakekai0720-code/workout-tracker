@@ -1,7 +1,7 @@
 // バックアップ JSON の検証。受け取ったものをそのまま信用せず、必要な項目だけ作り直す。
 import { BODY_PARTS } from './store.js';
 import { cleanMuscles } from './muscles.js';
-import { CUSTOM_FIELDS } from './guides.js';
+import { CUSTOM_FIELDS, EQUIPMENT } from './guides.js';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const ID = /^[A-Za-z0-9_-]{1,40}$/;
@@ -133,6 +133,8 @@ export function parseBackup(text, today) {
           timerCustomSec: int(s.timerCustomSec, 5) && s.timerCustomSec <= 3600 ? s.timerCustomSec : null,
           weightStepKg: num(s.weightStepKg) && s.weightStepKg > 0 ? s.weightStepKg : 2.5,
           lastBackupAt: today, // 読み込んだファイル自体が最新のバックアップ
+          // 持っている器具(絞り込みを使っていなければ null)
+          ownedEquipment: Array.isArray(s.ownedEquipment) ? [...new Set(s.ownedEquipment)].filter((k) => k in EQUIPMENT) : null,
         },
         exercises,
         entries,

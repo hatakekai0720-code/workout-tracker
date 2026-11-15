@@ -10,7 +10,7 @@ import {
 } from '../calc.js';
 import { computePRs, PR_LABELS } from '../insights.js';
 import { timerHtml, refreshTimers } from '../timer.js';
-import { groupByCategory } from '../guides.js';
+import { groupByCategory, isAvailable } from '../guides.js';
 import { openGuide } from './guide.js';
 import { esc, toast } from '../util.js';
 
@@ -205,7 +205,7 @@ function render() {
   const m = session.model;
   const ex = getExercise(m.exerciseId);
   const prev = findPrevious(getState().entries, m.exerciseId, session.date);
-  const options = groupByCategory(getState().exercises.filter((x) => !x.archived || x.id === m.exerciseId))
+  const options = groupByCategory(getState().exercises.filter((x) => (!x.archived && isAvailable(x)) || x.id === m.exerciseId))
     .map(
       (g) => `<optgroup label="${g.label}">${g.items
         .map((x) => `<option value="${x.id}" ${x.id === m.exerciseId ? 'selected' : ''}>${esc(x.name)}</option>`)
@@ -369,7 +369,9 @@ export function openEntryForm({ date, entryId = null, exerciseId = null, onChang
   if (entryId) {
     model = modelFromEntry(getEntry(entryId));
   } else {
-    const first = (exerciseId && getExercise(exerciseId)) || getState().exercises.find((x) => !x.archived);
+    const first = (exerciseId && getExercise(exerciseId)) ||
+      getState().exercises.find((x) => !x.archived && isAvailable(x)) ||
+      getState().exercises.find((x) => !x.archived);
     model = {
       exerciseId: first.id,
       done: false,
