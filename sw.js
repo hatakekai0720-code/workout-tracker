@@ -2,7 +2,7 @@
 // - アプリ本体はネットワーク優先(つながれば常に最新、だめならキャッシュ)
 // - フォントは変わらないのでキャッシュ優先(使った分だけ貯まる)
 // PRECACHE を変えたら VERSION を上げる(tests/sw.test.js がファイルの過不足を確かめる)。
-const VERSION = 'v1';
+const VERSION = 'v2';
 const SHELL = `shell-${VERSION}`;
 const FONTS = 'fonts-v1';
 const NETWORK_TIMEOUT_MS = 3000;
@@ -12,11 +12,14 @@ const PRECACHE = [
   'index.html',
   'manifest.webmanifest',
   'css/style.css',
+  'data/guides.json',
   'js/app.js',
   'js/backup.js',
   'js/calc.js',
   'js/charts.js',
+  'js/guides.js',
   'js/insights.js',
+  'js/muscles.js',
   'js/store.js',
   'js/suggest.js',
   'js/theme.js',
@@ -25,6 +28,8 @@ const PRECACHE = [
   'js/views/body.js',
   'js/views/calendar.js',
   'js/views/entry.js',
+  'js/views/exercises.js',
+  'js/views/guide.js',
   'js/views/home.js',
   'js/views/settings.js',
   'js/views/stats.js',

@@ -13,6 +13,8 @@ import {
 import { toDateStr, formatDateJa } from '../calc.js';
 import { parseBackup } from '../backup.js';
 import { applyTheme } from '../theme.js';
+import { musclesOf } from '../guides.js';
+import { MUSCLES, MUSCLE_KEYS, cleanMuscles } from '../muscles.js';
 import { esc, toast } from '../util.js';
 
 const THEMES = [
@@ -153,6 +155,7 @@ export function mountSettings(root) {
       Object.entries(map)
         .map(([k, v]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${v}</option>`)
         .join('');
+    const scroll = dlg.querySelector('.sheet-body')?.scrollTop ?? 0;
     dlg.innerHTML = `<form class="sheet" novalidate>
       <header class="sheet-head">
         <button type="button" class="btn-ghost" data-action="close">閉じる</button>
@@ -170,6 +173,13 @@ export function mountSettings(root) {
                <label class="field"><span>記録のしかた</span><select data-ex="loadType" ${lock}>${opts(LOAD_TYPES, x.loadType)}</select></label>`
             : ''
         }
+        <div class="field"><span>効く筋肉(タップで なし → メイン → サブ)</span>
+          <div class="chip-picker">${MUSCLE_KEYS.map((k) => {
+            const state = x.muscles.main.includes(k) ? 'main' : x.muscles.sub.includes(k) ? 'sub' : '';
+            const mark = state === 'main' ? '<small>メイン</small>' : state === 'sub' ? '<small>サブ</small>' : '';
+            return `<button type="button" class="chip ${state}" data-muscle="${k}" aria-pressed="${state !== ''}">${MUSCLES[k]}${mark}</button>`;
+          }).join('')}</div>
+        </div>
         ${used ? '<p class="hint">すでに記録があるため、種類と記録のしかたは変更できません。</p>' : ''}
         <p class="error" role="alert" hidden></p>
         ${
@@ -183,12 +193,13 @@ export function mountSettings(root) {
         }
       </div>
     </form>`;
+    dlg.querySelector('.sheet-body').scrollTop = scroll;
   }
 
   function openDialog(id) {
     editing = id
-      ? { ...getExercise(id) }
-      : { id: null, name: '', kind: 'strength', bodyPart: 'chest', loadType: 'weighted', archived: false };
+      ? { ...getExercise(id), muscles: musclesOf(getExercise(id)) }
+      : { id: null, name: '', kind: 'strength', bodyPart: 'chest', loadType: 'weighted', archived: false, muscles: { main: [], sub: [] } };
     renderDialog();
     dlg.showModal();
   }
@@ -219,6 +230,17 @@ export function mountSettings(root) {
   });
 
   dlg.addEventListener('click', (ev) => {
+    const chip = ev.target.closest('[data-muscle]');
+    if (chip) {
+      // なし → メイン → サブ → なし
+      const k = chip.dataset.muscle;
+      const { main, sub } = editing.muscles;
+      if (main.includes(k)) editing.muscles = { main: main.filter((m) => m !== k), sub: [...sub, k] };
+      else if (sub.includes(k)) editing.muscles = { main, sub: sub.filter((m) => m !== k) };
+      else editing.muscles = { main: [...main, k], sub };
+      renderDialog();
+      return;
+    }
     const t = ev.target.closest('[data-action]');
     if (!t) return;
     switch (t.dataset.action) {
@@ -248,13 +270,13 @@ export function mountSettings(root) {
     const name = editing.name.trim();
     if (!name) return showDialogError('種目名を入力してください');
     const run = editing.kind === 'run';
+    // editing は元の種目を写したものなので、メモや自分で書いた解説もそのまま残る
     saveExercise({
-      id: editing.id,
+      ...editing,
       name,
-      kind: editing.kind,
       bodyPart: run ? null : editing.bodyPart || 'chest',
       loadType: run ? null : editing.loadType || 'weighted',
-      archived: editing.archived,
+      muscles: cleanMuscles(editing.muscles),
     });
     closeDialog();
   });

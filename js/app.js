@@ -3,16 +3,20 @@ import { mountHome } from './views/home.js';
 import { mountCalendar } from './views/calendar.js';
 import { mountBody } from './views/body.js';
 import { mountStats } from './views/stats.js';
+import { mountExercises } from './views/exercises.js';
+import { loadGuides } from './guides.js';
 import { mountSettings } from './views/settings.js';
 import { initTheme } from './theme.js';
 import { initTimer, refreshTimers } from './timer.js';
 
 initStore();
+await loadGuides();
 window.Chart.defaults.font.family = "'Noto Sans JP', sans-serif";
 
 const views = {
   home: mountHome(document.getElementById('view-home')),
   calendar: mountCalendar(document.getElementById('view-calendar')),
+  exercises: mountExercises(document.getElementById('view-exercises')),
   stats: mountStats(document.getElementById('view-stats')),
   body: mountBody(document.getElementById('view-body')),
   settings: mountSettings(document.getElementById('view-settings')),

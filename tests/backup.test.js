@@ -71,3 +71,17 @@ test('設定の不正な値は既定値に戻す', () => {
   assert.deepEqual(state.settings, { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: '2026-11-15' });
   assert.deepEqual(state.profile, { heightCm: null, targetWeightKg: null });
 });
+
+test('効く筋肉・メモ・自分で書いた解説を復元で残す', () => {
+  const v = valid();
+  v.exercises[0].muscles = { main: ['quads', 'glutes', 'nope'], sub: ['quads', 'abs'] };
+  v.exercises[0].note = '膝を外に';
+  v.exercises[0].customGuide = { steps: 'ゆっくり下ろす', evil: 'x', tips: 42 };
+  const { state } = parse(v);
+  assert.deepEqual(state.exercises[0].muscles, { main: ['quads', 'glutes'], sub: ['abs'] });
+  assert.equal(state.exercises[0].note, '膝を外に');
+  assert.deepEqual(state.exercises[0].customGuide, { steps: 'ゆっくり下ろす' });
+  // 項目のない古いバックアップもそのまま読める
+  assert.equal('muscles' in state.exercises[1], false);
+  assert.equal('note' in state.exercises[1], false);
+});

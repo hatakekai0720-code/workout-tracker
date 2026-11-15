@@ -28,6 +28,7 @@
   <main id="app">
     <section id="view-home"></section>
     <section id="view-calendar" hidden></section>
+    <section id="view-exercises" hidden></section>
     <section id="view-stats" hidden></section>
     <section id="view-body" hidden></section>
     <section id="view-settings" hidden></section>
@@ -41,6 +42,10 @@
     <a href="#calendar">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
       カレンダー
+    </a>
+    <a href="#exercises">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12h8M5.5 8v8M8 6.5v11M16 6.5v11M18.5 8v8M3 10.5v3M21 10.5v3"/></svg>
+      種目
     </a>
     <a href="#stats">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20v-7M12 20V5M19 20v-10"/></svg>
@@ -58,7 +63,8 @@
 
   <dialog id="entry-dialog"></dialog>
   <dialog id="exercise-dialog"></dialog>
-  <div id="toast" role="status" aria-live="polite"></div>
+  <dialog id="guide-dialog"></dialog>
+  <div id="toast" popover="manual" role="status" aria-live="polite"></div>
   <script src="vendor/chart.umd.min.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>

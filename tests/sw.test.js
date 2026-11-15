@@ -18,6 +18,7 @@ test('アプリの JS・CSS がすべて事前キャッシュに入っている'
     ...readdirSync(`${root}js`).filter((f) => f.endsWith('.js')).map((f) => `js/${f}`),
     ...readdirSync(`${root}js/views`).map((f) => `js/views/${f}`),
     ...readdirSync(`${root}css`).map((f) => `css/${f}`),
+    ...readdirSync(`${root}data`).map((f) => `data/${f}`),
     ...readdirSync(`${root}icons`).map((f) => `icons/${f}`),
   ];
   for (const f of files) assert.ok(precache.includes(f), `${f} が sw.js の PRECACHE にありません`);
