@@ -21,6 +21,15 @@
       document.documentElement.dataset.theme = t;
     })();
   </script>
+  <!-- 3D マネキン用の Three.js を CDN から読み込む(種目タブを開いたときに取得。版を固定) -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.min.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+      }
+    }
+  </script>
   <link rel="stylesheet" href="vendor/noto-sans-jp/noto-sans-jp.css">
   <link rel="stylesheet" href="css/style.css">
 </head>

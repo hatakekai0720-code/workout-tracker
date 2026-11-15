@@ -17,6 +17,7 @@ test('アプリの JS・CSS がすべて事前キャッシュに入っている'
   const files = [
     ...readdirSync(`${root}js`).filter((f) => f.endsWith('.js')).map((f) => `js/${f}`),
     ...readdirSync(`${root}js/views`).map((f) => `js/views/${f}`),
+    ...readdirSync(`${root}js/mannequin`).map((f) => `js/mannequin/${f}`),
     ...readdirSync(`${root}css`).map((f) => `css/${f}`),
     ...readdirSync(`${root}data`).map((f) => `data/${f}`),
     ...readdirSync(`${root}icons`).map((f) => `icons/${f}`),
@@ -29,4 +30,11 @@ test('マニフェストのアイコンが存在する', () => {
   assert.equal(manifest.display, 'standalone');
   assert.equal(manifest.start_url, './');
   for (const icon of manifest.icons) assert.ok(existsSync(root + icon.src), `${icon.src} がありません`);
+});
+
+test('importmap と Service Worker で Three.js の版がそろっている', () => {
+  const html = readFileSync(`${root}index.html`, 'utf8');
+  const prefix = sw.match(/const CDN_PREFIX = '([^']+)'/)[1];
+  const map = JSON.parse(html.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]);
+  for (const url of Object.values(map.imports)) assert.ok(url.startsWith(prefix), `${url} が ${prefix} で始まっていません`);
 });

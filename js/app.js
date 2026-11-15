@@ -49,7 +49,10 @@ document.fonts?.ready.then(() => show(location.hash.slice(1)));
 
 // オフラインでも開けるようにする。失敗してもアプリ自体は動く。
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  const register = () => navigator.serviceWorker.register('sw.js').catch(() => {});
+  // このファイルは解説データの読み込みを待つので、ここに来た時点で load が済んでいることがある
+  if (document.readyState === 'complete') register();
+  else window.addEventListener('load', register);
 }
 // 端末の空き容量が減ったときに、記録が自動で消されにくくする
 navigator.storage?.persist?.().catch(() => {});

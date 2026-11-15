@@ -35,3 +35,14 @@ test('cleanMuscles', () => {
   assert.deepEqual(cleanMuscles(undefined), { main: [], sub: [] });
   assert.deepEqual(cleanMuscles({ main: ['abs', 'abs', 'x'], sub: ['abs', 'lats'] }), { main: ['abs'], sub: ['lats'] });
 });
+
+test('マネキンに、すべての筋肉のパーツがある', async () => {
+  const { PARTS } = await import('../js/mannequin/model.js');
+  const have = new Set(PARTS.map((p) => p.muscle).filter(Boolean));
+  for (const key of Object.keys(MUSCLES)) assert.ok(have.has(key), `${key} のパーツがない`);
+  for (const key of have) assert.ok(key in MUSCLES, `${key} は筋肉の一覧にない`);
+  // 左右対称: x を反転したパーツが必ずある
+  for (const p of PARTS) {
+    assert.ok(PARTS.some((q) => q.muscle === p.muscle && Math.abs(q.pos[0] + p.pos[0]) < 1e-9 && q.pos[1] === p.pos[1]));
+  }
+});
