@@ -2,7 +2,7 @@
 // - アプリ本体はネットワーク優先(つながれば常に最新、だめならキャッシュ)
 // - フォントは変わらないのでキャッシュ優先(使った分だけ貯まる)
 // PRECACHE を変えたら VERSION を上げる(tests/sw.test.js がファイルの過不足を確かめる)。
-const VERSION = 'v5';
+const VERSION = 'v6';
 const SHELL = `shell-${VERSION}`;
 const FONTS = 'fonts-v1';
 const CDN = 'cdn-v1';
