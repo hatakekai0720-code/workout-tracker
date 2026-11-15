@@ -5,6 +5,7 @@ const TIMED_STEP_SEC = 5;
 const RUN_WEEKLY_GROWTH = 1.1;
 const MIN_RUN_KM = 1; // 残り枠がこれ未満なら「今週は上限」とする
 const MAX_PARTS = 2;
+const MAX_PER_PART = 3;
 
 const round1 = (n) => Math.round(n * 10) / 10;
 const floor1 = (n) => Math.floor(n * 10 + 1e-9) / 10;
@@ -117,9 +118,19 @@ export function buildSuggestions(state, targetDate) {
   const onTarget = new Set(entries.filter((e) => e.date === targetDate).map((e) => e.exerciseId));
   const { ranked, skipped } = rankParts(entries, exercises, targetDate);
   const items = [];
+  const lastDone = new Map(); // 種目 → 最後に実施した日
+  for (const e of entries) {
+    if (e.status === 'done' && e.date < targetDate && e.date > (lastDone.get(e.exerciseId) || '')) lastDone.set(e.exerciseId, e.date);
+  }
   for (const part of ranked.slice(0, MAX_PARTS)) {
-    for (const ex of exercises) {
-      if (ex.kind !== 'strength' || ex.archived || ex.bodyPart !== part || onTarget.has(ex.id)) continue;
+    const candidates = exercises.filter((ex) => ex.kind === 'strength' && !ex.archived && ex.bodyPart === part && !onTarget.has(ex.id));
+    // 種目が多いので、最近やった種目を優先して部位ごとに MAX_PER_PART 件まで。
+    // その部位でまだ何もやっていなければ、最初の1種目だけを「入力する」として出す。
+    const done = candidates
+      .filter((ex) => lastDone.has(ex.id))
+      .sort((a, b) => (lastDone.get(a.id) > lastDone.get(b.id) ? -1 : lastDone.get(a.id) < lastDone.get(b.id) ? 1 : 0))
+      .slice(0, MAX_PER_PART);
+    for (const ex of done.length ? done : candidates.slice(0, 1)) {
       items.push(suggestStrength(ex, entries, targetDate, settings?.weightStepKg));
     }
   }

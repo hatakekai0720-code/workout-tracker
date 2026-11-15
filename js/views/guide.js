@@ -2,7 +2,7 @@
 import { getState, getExercise, saveExercise, BODY_PARTS } from '../store.js';
 import { findPrevious, formatShortDate, describeActual } from '../calc.js';
 import { computePRs, formatPR, PR_LABELS } from '../insights.js';
-import { getGuide, musclesOf, CUSTOM_FIELDS } from '../guides.js';
+import { guideFor, musclesOf, exerciseForGuide, CUSTOM_FIELDS, CATEGORIES, EQUIPMENT, PLACES, LEVELS } from '../guides.js';
 import { MUSCLES } from '../muscles.js';
 import { esc, toast } from '../util.js';
 
@@ -34,6 +34,27 @@ function musclesHtml(ex) {
   return `<dl class="kv">
     <dt>メイン</dt><dd>${chips(m.main, 'main') || '—'}</dd>
     <dt>サブ</dt><dd>${chips(m.sub, 'sub') || '—'}</dd>
+  </dl>`;
+}
+
+// 器具・場所・難易度・代わりの種目
+function infoHtml(g) {
+  const needs = g.equipment.length ? g.equipment.map((k) => EQUIPMENT[k]).join('・') : 'なし';
+  const alts = g.alternatives
+    .map((a) => {
+      // 一覧にある種目なら、タップでその解説へ移れる
+      const target = a.id && exerciseForGuide(a.id);
+      return target
+        ? `<button type="button" class="chip link" data-action="open-alt" data-id="${target.id}">${esc(target.name)} ›</button>`
+        : `<span class="chip">${esc(a.name)}</span>`;
+    })
+    .join('');
+  return `<dl class="kv">
+    <dt>器具カテゴリ</dt><dd>${CATEGORIES[g.category]}</dd>
+    <dt>必要な器具</dt><dd>${needs}</dd>
+    <dt>場所</dt><dd>${PLACES[g.place]}</dd>
+    <dt>難易度</dt><dd>${LEVELS[g.level]}</dd>
+    <dt>代わりの種目</dt><dd>${alts}</dd>
   </dl>`;
 }
 
@@ -111,7 +132,7 @@ function customHtml(ex) {
 
 function render() {
   const ex = getExercise(cur.exerciseId);
-  const g = getGuide(ex.id);
+  const g = guideFor(ex);
   const body = dlg.querySelector('.sheet-body');
   const scroll = body ? body.scrollTop : 0;
   const query = encodeURIComponent(`${ex.name} フォーム やり方`);
@@ -124,7 +145,8 @@ function render() {
       <div class="sheet-body guide">
         <a class="btn-primary yt" target="_blank" rel="noopener noreferrer"
           href="https://www.youtube.com/results?search_query=${query}">▶ YouTubeでフォームを見る</a>
-        ${g && g.title !== ex.name ? `<p class="hint">解説の内容: ${esc(g.title)}</p>` : ''}
+        ${g && g.name !== ex.name ? `<p class="hint">解説の内容: ${esc(g.name)}</p>` : ''}
+        ${g ? group('種目の情報', infoHtml(g)) : ''}
         ${group('自己ベストと前回の記録', recordsHtml(ex))}
         ${group(`効く筋肉${ex.bodyPart ? `<span class="tag">${BODY_PARTS[ex.bodyPart]}</span>` : ''}`, musclesHtml(ex))}
         ${g ? builtInHtml(g) : customHtml(ex)}
@@ -161,6 +183,11 @@ function setup() {
     switch (t.dataset.action) {
       case 'close':
         close();
+        break;
+      case 'open-alt':
+        cur = { ...cur, exerciseId: t.dataset.id, editing: false, draft: {} };
+        render();
+        dlg.querySelector('.sheet-body').scrollTop = 0;
         break;
       case 'save-note':
         saveExercise({ ...ex, note: dlg.querySelector('[data-field="note"]').value.trim() });

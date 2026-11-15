@@ -1,5 +1,5 @@
 // 2D マネキン(SVG)。3D が使えない環境用。3D と同じ形状データを前後から平面に写して描く。
-import { PARTS, COLORS } from './model.js';
+import { PARTS, COLORS, silhouette } from './model.js';
 
 const PX = 150; // 1m あたりのピクセル数
 const W = 150;
@@ -15,9 +15,10 @@ export function create2D(host, { onSelect }) {
       .map((p) => {
         const cx = (W / 2 + dir * p.pos[0] * PX).toFixed(1);
         const cy = ((TOP - p.pos[1]) * PX).toFixed(1);
-        const rot = ((-dir * p.rotZ * 180) / Math.PI).toFixed(1);
+        const shape = silhouette(p);
+        const rot = ((-dir * shape.angle * 180) / Math.PI).toFixed(1); // SVG は y が下向きなので符号が逆
         const attrs = p.muscle ? `data-muscle="${p.muscle}" fill="${COLORS.idle}"` : `fill="${COLORS.body}"`;
-        return `<ellipse cx="${cx}" cy="${cy}" rx="${(p.scale[0] * PX).toFixed(1)}" ry="${(p.scale[1] * PX).toFixed(1)}"
+        return `<ellipse cx="${cx}" cy="${cy}" rx="${(shape.rx * PX).toFixed(1)}" ry="${(shape.ry * PX).toFixed(1)}"
           transform="rotate(${rot} ${cx} ${cy})" ${attrs} stroke="${COLORS.outline}" stroke-width="0.6"/>`;
       })
       .join('');

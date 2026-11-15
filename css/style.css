@@ -472,6 +472,11 @@ select:disabled { opacity: .55; }
 :root[data-theme="dark"] .hint a { color: #8fb4ff; }
 .row > .btn-ghost { flex: none; min-height: 42px; }
 
+/* ---- 種目一覧・種目の情報 ---- */
+.card h3 small { margin-left: 8px; font-size: 12px; font-weight: 400; color: var(--muted); }
+.kv dd .chip { margin-bottom: 2px; }
+.chip.link { min-height: 32px; border-color: var(--btn-line); background: var(--btn); color: var(--text); }
+
 /* ---- 筋肉マップ ---- */
 .mq-tools { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; min-height: 36px; }
 .mq-tools .btn-ghost { margin-left: auto; min-height: 34px; font-size: 13px; }

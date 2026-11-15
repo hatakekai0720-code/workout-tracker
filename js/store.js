@@ -138,3 +138,9 @@ export function replaceState(next) {
   state = next;
   save();
 }
+
+// 種目マスタを丸ごと差し替える(カタログとの統合用)
+export function setExercises(list) {
+  state.exercises = list;
+  save();
+}

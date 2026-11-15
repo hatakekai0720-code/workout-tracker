@@ -66,7 +66,11 @@ export function mountStats(root) {
     const draws = [];
 
     // ---- 筋トレ(種目ごと) ----
-    const strength = exercises.filter((x) => x.kind === 'strength' && (!x.archived || x.id === ui.exerciseId));
+    const allStrength = exercises.filter((x) => x.kind === 'strength' && (!x.archived || x.id === ui.exerciseId));
+    // 種目が多いので、実施した記録のある種目だけを選択欄に出す(1つもなければ全部)
+    const doneIds = new Set(entries.filter((e) => e.status === 'done').map((e) => e.exerciseId));
+    const recorded = allStrength.filter((x) => doneIds.has(x.id));
+    const strength = recorded.length ? recorded : allStrength;
     if (!strength.some((x) => x.id === ui.exerciseId)) ui.exerciseId = defaultExercise(strength);
     const ex = ui.exerciseId ? getExercise(ui.exerciseId) : null;
     let strengthHtml = '<p class="empty">筋トレの種目がありません</p>';

@@ -1,6 +1,6 @@
 // 種目タブ: 筋肉マップ(3D/2D のマネキン)と種目の一覧。
 import { getState, BODY_PARTS } from '../store.js';
-import { getGuide, musclesOf } from '../guides.js';
+import { guideFor, musclesOf, groupByCategory, LEVELS } from '../guides.js';
 import { MUSCLES } from '../muscles.js';
 import { createMannequin } from '../mannequin/index.js';
 import { openGuide } from './guide.js';
@@ -71,13 +71,14 @@ export function mountExercises(root) {
 
   function row(x) {
     const m = musclesOf(x);
+    const g = guideFor(x);
     const tag = x.bodyPart ? `<span class="tag">${BODY_PARTS[x.bodyPart]}</span>` : '';
-    const main = m.main.length ? `メイン: ${m.main.map((k) => MUSCLES[k]).join('・')}` : '効く筋肉は未設定';
-    const hasGuide = getGuide(x.id) || Object.keys(x.customGuide || {}).length;
+    const main = m.main.length ? m.main.map((k) => MUSCLES[k]).join('・') : '効く筋肉は未設定';
+    const hasGuide = g || Object.keys(x.customGuide || {}).length;
     return `<li><button type="button" class="entry ${x.archived ? 'archived' : ''}" data-action="guide" data-id="${x.id}">
       <span class="entry-main">
         <span class="entry-name">${esc(x.name)}${tag}</span>
-        <span class="entry-sub">${main}${hasGuide ? '' : ' ・ 解説なし'}${x.archived ? ' ・ 非表示' : ''}</span>
+        <span class="entry-sub">${g ? `${LEVELS[g.level]} ・ ` : ''}${main}${hasGuide ? '' : ' ・ 解説なし'}${x.archived ? ' ・ 非表示' : ''}</span>
       </span>
       <span class="chev">›</span>
     </button></li>`;
@@ -86,11 +87,14 @@ export function mountExercises(root) {
   function render() {
     const { exercises } = getState();
     const sorted = [...exercises.filter((x) => !x.archived), ...exercises.filter((x) => x.archived)];
+    const groups = groupByCategory(sorted)
+      .map((g) => `<h3>${g.label}<small>${g.items.length}種目</small></h3><ul class="entry-list">${g.items.map(row).join('')}</ul>`)
+      .join('');
     root.querySelector('[data-list]').innerHTML = `
       <section class="card">
         <h2>種目の解説</h2>
         <p class="hint">種目をタップすると、やり方・コツ・注意点の解説が開きます。</p>
-        <ul class="entry-list">${sorted.map(row).join('')}</ul>
+        ${groups}
         <p class="hint after">種目の追加や、効く筋肉の設定は<a href="#settings">「設定」の種目マスタ</a>からできます。</p>
       </section>`;
     if (!mannequin) startMannequin(); // 初めてこのタブを開いたときに読み込む

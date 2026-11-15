@@ -10,6 +10,7 @@ import {
 } from '../calc.js';
 import { computePRs, PR_LABELS } from '../insights.js';
 import { timerHtml, refreshTimers } from '../timer.js';
+import { groupByCategory } from '../guides.js';
 import { openGuide } from './guide.js';
 import { esc, toast } from '../util.js';
 
@@ -204,9 +205,12 @@ function render() {
   const m = session.model;
   const ex = getExercise(m.exerciseId);
   const prev = findPrevious(getState().entries, m.exerciseId, session.date);
-  const options = getState()
-    .exercises.filter((x) => !x.archived || x.id === m.exerciseId)
-    .map((x) => `<option value="${x.id}" ${x.id === m.exerciseId ? 'selected' : ''}>${esc(x.name)}</option>`)
+  const options = groupByCategory(getState().exercises.filter((x) => !x.archived || x.id === m.exerciseId))
+    .map(
+      (g) => `<optgroup label="${g.label}">${g.items
+        .map((x) => `<option value="${x.id}" ${x.id === m.exerciseId ? 'selected' : ''}>${esc(x.name)}</option>`)
+        .join('')}</optgroup>`,
+    )
     .join('');
   const body = dlg.querySelector('.sheet-body');
   const scroll = body ? body.scrollTop : 0;

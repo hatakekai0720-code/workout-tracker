@@ -24,6 +24,7 @@ function exercise(x, seen) {
   seen.add(x.id);
   const base = { id: x.id, name: x.name.trim(), archived: x.archived === true };
   // 任意の項目: 効く筋肉、自分用メモ、自分で書いた解説
+  if (typeof x.guideId === 'string' && ID.test(x.guideId)) base.guideId = x.guideId;
   if (isObj(x.muscles)) base.muscles = cleanMuscles(x.muscles);
   if (typeof x.note === 'string' && x.note) base.note = x.note.slice(0, MAX_TEXT);
   if (isObj(x.customGuide)) {

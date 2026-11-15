@@ -13,7 +13,7 @@ import {
 import { toDateStr, formatDateJa } from '../calc.js';
 import { parseBackup } from '../backup.js';
 import { applyTheme } from '../theme.js';
-import { musclesOf } from '../guides.js';
+import { musclesOf, syncCatalog, guideFor, CATEGORIES } from '../guides.js';
 import { MUSCLES, MUSCLE_KEYS, cleanMuscles } from '../muscles.js';
 import { esc, toast } from '../util.js';
 
@@ -35,7 +35,8 @@ export function mountSettings(root) {
   function exerciseRows() {
     return getState()
       .exercises.map((x) => {
-        const sub = x.kind === 'run' ? 'ランニング' : LOAD_TYPES[x.loadType];
+        const g = guideFor(x);
+        const sub = `${g ? `${CATEGORIES[g.category]} ・ ` : ''}${x.kind === 'run' ? '距離と時間' : LOAD_TYPES[x.loadType]}`;
         const tag = x.bodyPart ? `<span class="tag">${BODY_PARTS[x.bodyPart]}</span>` : '';
         return `<li><button type="button" class="entry ${x.archived ? 'archived' : ''}" data-action="edit-exercise" data-id="${x.id}">
           <span class="entry-main">
@@ -140,6 +141,7 @@ export function mountSettings(root) {
     );
     if (!ok) return;
     replaceState(state);
+    syncCatalog(); // 古いバックアップにも、今のカタログの種目を足す
     applyTheme();
     toast('バックアップから復元しました');
     render();
@@ -187,7 +189,7 @@ export function mountSettings(root) {
             ? ''
             : x.archived
               ? '<button type="button" class="btn-ghost wide" data-action="unarchive">もう一度表示する</button>'
-              : used
+              : used || x.guideId
                 ? '<button type="button" class="btn-danger wide" data-action="archive">この種目を非表示にする</button><p class="hint">過去の記録は残り、新しく選べなくなります。</p>'
                 : '<button type="button" class="btn-danger wide" data-action="delete">この種目を削除</button>'
         }

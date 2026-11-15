@@ -18,7 +18,7 @@ export function create3D(host, { onSelect }) {
   host.replaceChildren(canvas);
 
   const scene = new THREE.Scene();
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x9a917f, 2.4));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xb9a79a, 2.3));
   const sun = new THREE.DirectionalLight(0xffffff, 1.3);
   scene.add(sun);
 
@@ -27,7 +27,7 @@ export function create3D(host, { onSelect }) {
   camera.position.set(0, BODY_CENTER_Y, DISTANCE);
 
   // 球を1つだけ作り、拡大縮小してすべてのパーツに使い回す(ポリゴン数とメモリを抑える)
-  const sphere = new THREE.SphereGeometry(1, 14, 9);
+  const sphere = new THREE.SphereGeometry(1, 16, 10);
   const bodyMaterial = new THREE.MeshLambertMaterial({ color: COLORS.body });
   const materials = new Map(); // 筋肉のキー → マテリアル(左右で共有)
   const meshes = [];
@@ -38,9 +38,16 @@ export function create3D(host, { onSelect }) {
       material = materials.get(part.muscle);
     }
     const mesh = new THREE.Mesh(sphere, material);
-    mesh.position.set(...part.pos);
-    mesh.scale.set(...part.scale);
-    mesh.rotation.z = part.rotZ;
+    // 位置・回転・拡大を1つの行列にまとめて直接渡す
+    const r = part.rot;
+    const [sx, sy, sz] = part.scale;
+    mesh.matrixAutoUpdate = false;
+    mesh.matrix.set(
+      r[0][0] * sx, r[0][1] * sy, r[0][2] * sz, part.pos[0],
+      r[1][0] * sx, r[1][1] * sy, r[1][2] * sz, part.pos[1],
+      r[2][0] * sx, r[2][1] * sy, r[2][2] * sz, part.pos[2],
+      0, 0, 0, 1,
+    );
     mesh.userData.muscle = part.muscle;
     scene.add(mesh);
     meshes.push(mesh);

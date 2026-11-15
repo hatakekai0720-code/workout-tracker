@@ -2,22 +2,53 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { MUSCLES, cleanMuscles } from '../js/muscles.js';
+import { mergeCatalog, CATEGORIES, EQUIPMENT, PLACES, LEVELS } from '../js/guides.js';
+import { BODY_PARTS } from '../js/store.js';
 
-const guides = JSON.parse(readFileSync(new URL('../data/guides.json', import.meta.url), 'utf8'));
-const INITIAL = ['ex_squat', 'ex_row', 'ex_pullup', 'ex_pushup', 'ex_shoulder', 'ex_plank', 'ex_run'];
+const catalog = JSON.parse(readFileSync(new URL('../data/exercises.json', import.meta.url), 'utf8'));
 const text = (v) => typeof v === 'string' && v.trim().length > 0;
 
-test('初期の種目すべてに解説がある', () => {
-  assert.deepEqual(Object.keys(guides).sort(), [...INITIAL].sort());
-});
+// 器具カテゴリごとの、そろっているべき種目(追加した回から順に埋めていく)
+const EXPECTED = {
+  bodyweight: ['腕立て伏せ', 'ワイドプッシュアップ', 'ダイヤモンドプッシュアップ', 'パイクプッシュアップ', 'ベンチディップス', '自重スクワット',
+    'ブルガリアンスクワット', 'ランジ', 'ヒップリフト', 'カーフレイズ', 'プランク', 'サイドプランク', 'クランチ', 'レッグレイズ', 'バーピー'],
+  run: ['ランニング'],
+};
 
-for (const id of INITIAL) {
-  test(`${id} の解説が必要な項目をそろえている`, () => {
-    const g = guides[id];
-    assert.ok(text(g.title));
+for (const [category, names] of Object.entries(EXPECTED)) {
+  test(`${CATEGORIES[category]} の種目がそろっている`, () => {
+    const have = Object.values(catalog).filter((g) => g.category === category).map((g) => g.name);
+    assert.deepEqual(have, names);
+  });
+}
+
+for (const [slug, g] of Object.entries(catalog)) {
+  test(`${slug}(${g.name}) の解説が必要な項目をそろえている`, () => {
+    assert.match(slug, /^[a-z0-9_]+$/);
+    assert.ok(text(g.name));
+    // 種目マスタに入れる情報
+    if (g.kind === 'run') assert.ok(g.bodyPart === null && g.loadType === null);
+    else {
+      assert.equal(g.kind, 'strength');
+      assert.ok(g.bodyPart in BODY_PARTS);
+      assert.ok(['weighted', 'bodyweight', 'timed'].includes(g.loadType));
+    }
+    // 器具・場所・難易度・代わりの種目
+    assert.ok(g.category in CATEGORIES);
+    for (const k of g.equipment) assert.ok(k in EQUIPMENT, `${k} は器具の一覧にない`);
+    if (g.category === 'bodyweight') assert.deepEqual(g.equipment, []);
+    assert.ok(g.place in PLACES && g.level in LEVELS);
+    assert.ok(g.alternatives.length >= 1);
+    for (const a of g.alternatives) {
+      assert.ok(text(a.name));
+      assert.notEqual(a.id, slug);
+      // カタログにある種目を指しているなら、名前が一致していること(まだ追加していない種目は名前だけで表示する)
+      if (a.id && catalog[a.id]) assert.equal(a.name, catalog[a.id].name);
+    }
+    // 解説の本文
     assert.ok(g.muscles.main.length >= 1);
     for (const k of [...g.muscles.main, ...g.muscles.sub]) assert.ok(k in MUSCLES, `${k} は筋肉の一覧にない`);
-    assert.deepEqual(cleanMuscles(g.muscles), g.muscles); // 重複やメイン・サブの重なりがない
+    assert.deepEqual(cleanMuscles(g.muscles), g.muscles);
     assert.ok(text(g.setup.equipment) && text(g.setup.start) && text(g.setup.width));
     assert.ok(g.steps.length >= 5 && g.steps.length <= 7 && g.steps.every(text));
     assert.ok(text(g.tempo) && text(g.breathing));
@@ -31,18 +62,80 @@ for (const id of INITIAL) {
   });
 }
 
+test('種目名が重複していない', () => {
+  const names = Object.values(catalog).map((g) => g.name);
+  assert.equal(new Set(names).size, names.length);
+});
+
+// ---- 種目マスタとの統合 ----
+
+const seed = () => [
+  { id: 'ex_squat', name: 'ダンベルスクワット', kind: 'strength', bodyPart: 'legs', loadType: 'weighted', archived: false },
+  { id: 'ex_row', name: 'ロウ', kind: 'strength', bodyPart: 'back', loadType: 'weighted', archived: false },
+  { id: 'ex_pullup', name: '懸垂', kind: 'strength', bodyPart: 'back', loadType: 'bodyweight', archived: false },
+  { id: 'ex_pushup', name: '腕立て伏せ', kind: 'strength', bodyPart: 'chest', loadType: 'bodyweight', archived: false },
+  { id: 'ex_shoulder', name: 'ショルダープレス', kind: 'strength', bodyPart: 'shoulders', loadType: 'weighted', archived: false },
+  { id: 'ex_plank', name: 'プランク', kind: 'strength', bodyPart: 'core', loadType: 'timed', archived: false },
+  { id: 'ex_run', name: 'ランニング', kind: 'run', bodyPart: null, loadType: null, archived: false },
+];
+
+test('mergeCatalog: 以前からの種目は id を変えずに結びつけ、足りない種目を追加する', () => {
+  const merged = mergeCatalog(seed(), catalog);
+  const byId = Object.fromEntries(merged.map((x) => [x.id, x]));
+  // id はそのまま(記録が引き継がれる)。名前はカタログにそろえる
+  assert.equal(byId.ex_row.guideId, 'one_hand_row');
+  assert.equal(byId.ex_row.name, 'ワンハンドロウ');
+  assert.equal(byId.ex_shoulder.name, 'ダンベルショルダープレス');
+  assert.equal(byId.ex_squat.guideId, 'db_squat');
+  assert.equal(byId.ex_run.guideId, 'running');
+  // カタログの全種目が1つずつ結びついている
+  const linked = merged.map((x) => x.guideId).filter(Boolean);
+  assert.deepEqual([...linked].sort(), Object.keys(catalog).sort());
+  assert.equal(merged.length, Object.keys(catalog).length);
+  assert.equal(new Set(merged.map((x) => x.id)).size, merged.length);
+  const lunge = merged.find((x) => x.guideId === 'lunge');
+  assert.deepEqual(lunge, { id: 'ex_lunge', name: 'ランジ', kind: 'strength', bodyPart: 'legs', loadType: 'bodyweight', guideId: 'lunge', archived: false });
+});
+
+test('mergeCatalog: 2回目は何も変えない', () => {
+  const once = mergeCatalog(seed(), catalog);
+  assert.equal(mergeCatalog(once, catalog), once);
+});
+
+test('mergeCatalog: 自分で変えた名前・メモ・自分で追加した種目は残す', () => {
+  const mine = seed();
+  mine[0] = { ...mine[0], name: 'スクワット', loadType: 'bodyweight', note: '膝を外に' }; // 自重に変えて使っていた
+  mine[1] = { ...mine[1], name: 'ダンベルロー(右から)', archived: true };
+  mine.push({ id: 'ex_abc123', name: 'アームカール(自作)', kind: 'strength', bodyPart: 'arms', loadType: 'weighted', archived: false, customGuide: { tips: 'ゆっくり' } });
+  const merged = mergeCatalog(mine, catalog);
+  const byId = Object.fromEntries(merged.map((x) => [x.id, x]));
+  assert.equal(byId.ex_squat.name, 'スクワット');
+  assert.equal(byId.ex_squat.guideId, 'bw_squat'); // 自重スクワットの解説に結びつく
+  assert.equal(byId.ex_squat.note, '膝を外に');
+  assert.equal(byId.ex_row.name, 'ダンベルロー(右から)');
+  assert.equal(byId.ex_row.archived, true);
+  assert.deepEqual(byId.ex_abc123, mine.at(-1));
+  // 自重スクワットは重複して追加されず、ダンベルスクワットが新しく入る
+  assert.equal(merged.filter((x) => x.guideId === 'bw_squat').length, 1);
+  assert.equal(merged.find((x) => x.guideId === 'db_squat').id, 'ex_db_squat');
+});
+
 test('cleanMuscles', () => {
   assert.deepEqual(cleanMuscles(undefined), { main: [], sub: [] });
   assert.deepEqual(cleanMuscles({ main: ['abs', 'abs', 'x'], sub: ['abs', 'lats'] }), { main: ['abs'], sub: ['lats'] });
 });
 
 test('マネキンに、すべての筋肉のパーツがある', async () => {
-  const { PARTS } = await import('../js/mannequin/model.js');
+  const { PARTS, silhouette } = await import('../js/mannequin/model.js');
   const have = new Set(PARTS.map((p) => p.muscle).filter(Boolean));
   for (const key of Object.keys(MUSCLES)) assert.ok(have.has(key), `${key} のパーツがない`);
   for (const key of have) assert.ok(key in MUSCLES, `${key} は筋肉の一覧にない`);
   // 左右対称: x を反転したパーツが必ずある
   for (const p of PARTS) {
-    assert.ok(PARTS.some((q) => q.muscle === p.muscle && Math.abs(q.pos[0] + p.pos[0]) < 1e-9 && q.pos[1] === p.pos[1]));
+    assert.ok(PARTS.some((q) => q.muscle === p.muscle && Math.abs(q.pos[0] + p.pos[0]) < 1e-9 && Math.abs(q.pos[1] - p.pos[1]) < 1e-9));
   }
+  // 回転のないパーツは、そのままの楕円になる
+  const head = PARTS[0];
+  const s = silhouette(head);
+  assert.ok(Math.abs(Math.max(s.rx, s.ry) - head.scale[1]) < 1e-9 && Math.abs(Math.min(s.rx, s.ry) - head.scale[0]) < 1e-9);
 });
