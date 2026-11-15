@@ -42,3 +42,10 @@ show(location.hash.slice(1));
 
 // グラフの文字は読み込み前のフォントで描かれるので、読み込み後に描き直す
 document.fonts?.ready.then(() => show(location.hash.slice(1)));
+
+// オフラインでも開けるようにする。失敗してもアプリ自体は動く。
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+// 端末の空き容量が減ったときに、記録が自動で消されにくくする
+navigator.storage?.persist?.().catch(() => {});

@@ -85,6 +85,13 @@ export function mountSettings(root) {
         <button type="button" class="btn-ghost wide" data-action="import">バックアップから復元する</button>
         <input type="file" accept="application/json,.json" data-field="import-file" hidden>
         <p class="error" role="alert" data-import-error hidden></p>
+      </section>
+
+      <section class="card">
+        <h2>ホーム画面に追加</h2>
+        <p class="hint">iPhone: Safari の共有ボタン →「ホーム画面に追加」</p>
+        <p class="hint">Android: Chrome のメニュー →「アプリをインストール」または「ホーム画面に追加」</p>
+        <p class="hint">追加すると、アプリのように全画面で開き、電波のない場所でも使えます。</p>
       </section>`;
   }
 
