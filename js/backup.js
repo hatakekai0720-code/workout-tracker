@@ -204,6 +204,7 @@ function program(x, exById) {
       excluded: [...new Set(Array.isArray(c.excluded) ? c.excluded : [])].filter((id) => exById.has(id)),
       run: { perWeek: int(run.perWeek, 0) ? Math.min(run.perWeek, 6) : 0, km: num(run.km) && run.km <= 100 ? run.km : 0 },
       timeOfDay: c.timeOfDay in TIMES_OF_DAY ? c.timeOfDay : 'any',
+      ...(c.separateRun === true ? { separateRun: true } : {}), // 任意。ランを筋トレと別の日にする
       seed: int(c.seed, 0) ? c.seed : 0,
     },
     templates,

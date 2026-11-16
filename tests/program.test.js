@@ -97,7 +97,7 @@ test('重点部位は週10〜20セット、それ以外は維持、鍛えない�
   const p = generateProgram(config({ perWeek: 4, minutes: 60, equipment: ALL, focus: ['chest', 'back'], avoid: ['core'] }), ctx());
   assert.ok(p.volume.chest >= 10 && p.volume.chest <= 20, `胸 ${p.volume.chest}`);
   assert.ok(p.volume.back >= 10 && p.volume.back <= 20, `背中 ${p.volume.back}`);
-  assert.ok(p.volume.legs <= 8 && p.volume.legs >= 2, `脚 ${p.volume.legs}`);
+  assert.ok(p.volume.legs <= 12 && p.volume.legs >= 2, `脚 ${p.volume.legs}`);
   assert.equal(p.volume.core, undefined);
   assert.ok(p.reasons.some((r) => r.includes('重点部位の週セット数')));
   assert.ok(p.reasons.some((r) => r.includes('体幹は「鍛えない」')));

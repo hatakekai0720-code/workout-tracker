@@ -14,6 +14,7 @@ const MIN_GAP_H = 48; // 同じ部位は最低これだけ空ける
 const GOOD_GAP_H = 72;
 const RUN_MIN_PER_KM = 7;
 const OUTSIDE_PENALTY = 3; // 希望の時間帯に置けない日は、3日ずらすのと同じくらい避ける
+const SEPARATE_PENALTY = 20; // ランを分ける設定のとき、筋トレと同じ日はほぼ選ばない
 
 const ceil5 = (n) => Math.ceil(n / 5) * 5;
 const stamp = (date, time) => dayNumber(date) * 1440 + toMin(time || '12:00'); // 通しの分
@@ -42,7 +43,8 @@ function slotFor(date, duration, timeOfDay, env) {
 // 返り値: [{ kind: 'session' | 'run', week, index, label, date, time | null, durationMin, warnings: [文] }]
 // minDate: これより前の日には置かない(途中から入れ直すとき)。週がまるごと過ぎていれば、その週は飛ばす。
 // skip: 置かない回の集合('週:s回' または '週:r回')。すでに実施した回を指定する。
-export function placeProgram({ weeks, startDate, events, entries, settings, timeOfDay, partsOf, minDate = startDate, skip = new Set() }) {
+// separateRun: true ならランは筋トレのある日に置かない(空いている日がないときだけ同じ日にして、注意を出す)。
+export function placeProgram({ weeks, startDate, events, entries, settings, timeOfDay, partsOf, minDate = startDate, skip = new Set(), separateRun = false }) {
   const env = {
     events,
     dayStart: toMin(settings.dayStart),
@@ -56,6 +58,8 @@ export function placeProgram({ weeks, startDate, events, entries, settings, time
     const part = partsOf.get(e.exerciseId);
     if (part && part !== 'core') trained.push({ at: stamp(e.date, e.time), parts: new Set([part]) });
   }
+  // 筋トレの記録がある日(ランを分けるときに避ける)
+  const strengthDates = new Set(entries.filter((e) => partsOf.get(e.exerciseId)).map((e) => e.date));
   const gapHours = (at, parts) => {
     let min = Infinity;
     for (const t of trained) if ([...parts].some((p) => t.parts.has(p))) min = Math.min(min, Math.abs(at - t.at) / 60);
@@ -100,8 +104,10 @@ export function placeProgram({ weeks, startDate, events, entries, settings, time
       out.push(item);
     });
 
-    // ランは、筋トレのない日を優先して均等に散らす
+    // ランは、筋トレのない日を優先して均等に散らす(分ける設定なら、筋トレの日は強く避ける)
     const runDays = new Set();
+    const sameDayPenalty = separateRun ? SEPARATE_PENALTY : 2.5;
+    const hasStrength = (d) => sessionDays.has(d) || (separateRun && strengthDates.has(days[d]));
     wk.runs.forEach((km, index) => {
       if (skip.has(`${wk.index}:r${index}`)) return;
       const ideal = Math.floor(((index + 0.5) * 7) / wk.runs.length);
@@ -111,19 +117,22 @@ export function placeProgram({ weeks, startDate, events, entries, settings, time
         if (runDays.has(d) || date < minDate) return;
         const slot = slotFor(date, duration, timeOfDay, env);
         if (!slot) return;
-        const score = -Math.abs(d - ideal) - (sessionDays.has(d) ? 2.5 : 0) - (slot.inWindow ? 0 : OUTSIDE_PENALTY);
+        const score = -Math.abs(d - ideal) - (hasStrength(d) ? sameDayPenalty : 0) - (slot.inWindow ? 0 : OUTSIDE_PENALTY);
         if (!best || score > best.score) best = { score, d, date, slot };
       });
       const item = { kind: 'run', week: wk.index, index, label: `ランニング ${km}km`, km, durationMin: duration, warnings: [] };
       if (best) {
         Object.assign(item, { date: best.date, time: best.slot.time });
         if (!best.slot.inWindow) item.warnings.push('希望の時間帯に空きがなく、別の時間にしています');
+        if (separateRun && hasStrength(best.d)) item.warnings.push('ほかに空いている日がないため、筋トレと同じ日にしています');
         runDays.add(best.d);
         env.fixed.push({ date: item.date, time: item.time, durationMin: duration });
       } else {
-        const d = open.filter((x) => !runDays.has(x)).sort((a, b) => Math.abs(a - ideal) - Math.abs(b - ideal))[0] ?? open[0];
+        const cost = (x) => Math.abs(x - ideal) + (hasStrength(x) ? sameDayPenalty : 0);
+        const d = open.filter((x) => !runDays.has(x)).sort((a, b) => cost(a) - cost(b))[0] ?? open[0];
         Object.assign(item, { date: days[d], time: null });
         item.warnings.push('空き時間が見つからないため、時刻を決めていません');
+        if (separateRun && hasStrength(d)) item.warnings.push('ほかに空いている日がないため、筋トレと同じ日にしています');
         runDays.add(d);
       }
       out.push(item);

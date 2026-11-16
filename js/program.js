@@ -30,7 +30,7 @@ const SCHEMES = {
   fitness: { compound: { reps: [12, 20], sets: 3, rest: 45 }, other: { reps: [12, 20], sets: 3, rest: 30 }, text: '12〜20 回、休憩は短め(30〜45 秒)' },
 };
 const FOCUS_WEEKLY = [10, 20]; // 重点部位の週セット数
-const KEEP_WEEKLY_MAX = 8; // それ以外(維持)の上限
+const KEEP_WEEKLY_MAX = 12; // それ以外(維持)の上限
 const MAX_SETS = 5;
 const WORK_SEC = 40; // 1セットの動作時間の見積もり
 const SWITCH_SEC = 60; // 種目の入れ替えにかかる時間
@@ -429,7 +429,7 @@ export function describe(templates, config, ctx, notes = []) {
   if (withRecord) reasons.push(`重さは、これまでの記録(推定1RM${[...starts.values()].some((s) => s.basis?.startsWith('RPE')) ? 'と前回のきつさ' : ''})から、余裕をもってこなせる値にしています`);
   if (without) reasons.push(`記録のない ${without} 種目は重さが空欄です。初回に「あと2〜3回できる」重さを探してください`);
   if (config.gymSessions > 0) reasons.push(`週 ${config.gymSessions} 回はジムの器具を使うメニューにしています(「ジム」の印の回)`);
-  if (weeks[0].runs.length) reasons.push(`ランニングは週 ${config.run.perWeek} 回・1回 ${config.run.km}km から始め、週に5%ずつ伸ばします`);
+  if (weeks[0].runs.length) reasons.push(`ランニングは週 ${config.run.perWeek} 回・1回 ${config.run.km}km から始め、週に5%ずつ伸ばします${config.separateRun ? '。日程に入れるときは筋トレと別の日にします' : ''}`);
   reasons.push('同じ部位が続かない順に並べています。日程に入れるときは、同じ部位を48〜72時間空けます');
   return { weeks, volume, reasons: [...reasons, ...notes] };
 }

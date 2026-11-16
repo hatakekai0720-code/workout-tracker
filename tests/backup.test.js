@@ -169,6 +169,12 @@ test('RPE とプログラムを復元で残す。壊れたプログラムはそ�
     level: 'beginner', excluded: ['ex_squat'], run: { perWeek: 2, km: 3 }, timeOfDay: 'night', seed: 4 });
   assert.deepEqual(state.program.templates, [{ key: 'fullA', label: '全身A', gym: false, items: [{ slot: 'squat', exerciseId: 'ex_squat', sets: 3 }] }]);
   assert.equal(state.program.schedule, null);
+  // ランを筋トレと別の日にする設定(任意)。true のときだけ残す
+  v.program.config.separateRun = true;
+  assert.equal(parse(v).state.program.config.separateRun, true);
+  v.program.config.separateRun = 'yes';
+  assert.equal('separateRun' in parse(v).state.program.config, false);
+  delete v.program.config.separateRun;
   // 日程に入れたあとの印も残す
   v.program.schedule = { startDate: '2026-11-17' };
   Object.assign(v.entries[1], { programId: 'prog1', sessionKey: 'prog1:0:0', sessionLabel: '全身A' });
