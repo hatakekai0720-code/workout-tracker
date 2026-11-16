@@ -1,8 +1,8 @@
 // バックアップ JSON の検証。受け取ったものをそのまま信用せず、必要な項目だけ作り直す。
 import { BODY_PARTS } from './store.js';
-import { cleanMuscles } from './muscles.js';
+import { cleanMuscles } from '../logic/muscles.js';
 import { CUSTOM_FIELDS, EQUIPMENT } from './guides.js';
-import { GOALS, TIMES_OF_DAY, SLOT_KEYS } from './program.js';
+import { GOALS, TIMES_OF_DAY, SLOT_KEYS } from '../logic/program.js';
 import { SCHEMA_VERSION, migrate } from './migrate.js';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { migrate, versionOf, SCHEMA_VERSION, MIGRATIONS } from '../js/migrate.js';
+import { migrate, versionOf, SCHEMA_VERSION, MIGRATIONS } from '../js/data/migrate.js';
 
 test('今の版のデータはそのまま(変換しない)', () => {
   const data = { schemaVersion: SCHEMA_VERSION, entries: [{ id: 'e1' }], exercises: [] };

@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { initStore, getState, setSettings, upsertEntry, getAutoBackups, readAutoBackupText, autoBackupNow, replaceState } from '../js/store.js';
-import { listAutoBackups } from '../js/autobackup.js';
-import { SCHEMA_VERSION } from '../js/migrate.js';
+import { initStore, getState, setSettings, upsertEntry, getAutoBackups, readAutoBackupText, autoBackupNow, replaceState } from '../js/data/store.js';
+import { listAutoBackups } from '../js/data/autobackup.js';
+import { SCHEMA_VERSION } from '../js/data/migrate.js';
 import { MemoryStorage } from './memory-storage.js';
 
 const KEY = 'workoutTracker.data';

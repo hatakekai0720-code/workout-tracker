@@ -1,7 +1,8 @@
 // カレンダータブ: 月・週・日の表示、選んだ日のメニューと予定、スケジュールの便利機能。
-import { getState, getExercise, getEntry, upsertEntry, setEvents, moveSession, makeId, BODY_PARTS } from '../store.js';
-import { toDateStr, monthGrid, formatDateJa, formatShortDate, describePlan, describeActual, addDays, weekStart } from '../calc.js';
-import { computePRs, runCalories, PR_LABELS } from '../insights.js';
+import { getState, getExercise, getEntry, upsertEntry, setEvents, moveSession, makeId, BODY_PARTS } from '../data/store.js';
+import { toDateStr, monthGrid, formatDateJa, formatShortDate, addDays, weekStart } from '../logic/dates.js';
+import { describePlan, describeActual } from '../logic/training.js';
+import { computePRs, runCalories, PR_LABELS } from '../logic/insights.js';
 import {
   expandEvents,
   findConflicts,
@@ -13,12 +14,12 @@ import {
   timeOptions,
   EVENT_KINDS,
   DEFAULT_TRAINING_MIN,
-} from '../schedule.js';
+} from '../logic/schedule.js';
 import { timelineHtml, attachResize, minuteAt } from './timeline.js';
 import { openEntryForm } from './entry.js';
 import { openEventForm } from './event.js';
 import { openTermForm } from './term.js';
-import { esc, toast } from '../util.js';
+import { esc, toast } from '../ui/util.js';
 
 const MAX_DOTS = 4;
 const CONFLICT_DAYS = 60; // 今日から何日先までの重なりを知らせるか

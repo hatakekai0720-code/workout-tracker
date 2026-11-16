@@ -1,8 +1,8 @@
 // 学期の時間割をまとめて登録するダイアログ。
-import { getState, addTerm, deleteTerm, makeId } from '../store.js';
-import { toDateStr, addDays, formatShortDate } from '../calc.js';
-import { WEEKDAYS, timeOptions, toMin, termEvents } from '../schedule.js';
-import { esc, toast } from '../util.js';
+import { getState, addTerm, deleteTerm, makeId } from '../data/store.js';
+import { toDateStr, addDays, formatShortDate } from '../logic/dates.js';
+import { WEEKDAYS, timeOptions, toMin, termEvents } from '../logic/schedule.js';
+import { esc, toast } from '../ui/util.js';
 
 const MAX_ROWS = 40;
 

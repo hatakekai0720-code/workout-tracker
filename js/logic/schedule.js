@@ -5,7 +5,7 @@
 //     repeat: null | { freq, days: [0〜6(月〜日)], until: 'YYYY-MM-DD' | null, count: 数 | null },
 //     exceptions: { 'YYYY-MM-DD': { skip: true } | { start, end } }, termId: 学期のid | null }
 //   date は繰り返しの開始日(繰り返さない予定ではその日)。
-import { dayNumber, addDays, weekStart } from './calc.js';
+import { dayNumber, addDays, weekStart } from './dates.js';
 
 export const EVENT_KINDS = { school: '学校', work: 'バイト', other: 'その他' };
 export const REPEAT_FREQS = {

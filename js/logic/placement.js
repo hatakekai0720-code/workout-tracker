@@ -1,5 +1,5 @@
 // プログラムの日程への自動配置。DOM や保存先には触れない。
-import { addDays, dayNumber } from './calc.js';
+import { addDays, dayNumber } from './dates.js';
 import { expandEvents, freeStarts, toMin, fromMin, DEFAULT_TRAINING_MIN } from './schedule.js';
 
 // 希望の時間帯: [開始, 終了, いちばん置きたい時刻](分)

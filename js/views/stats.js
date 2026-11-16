@@ -1,19 +1,9 @@
 // グラフ・統計。期間切替はページ全体に効く。
-import { getState, getExercise, BODY_PARTS } from '../store.js';
-import {
-  toDateStr,
-  dayNumber,
-  dayNumberToDateStr,
-  weekStart,
-  weekRange,
-  strengthSeries,
-  runSeries,
-  weeklyRunDistance,
-  weeklySetsByPart,
-  formatPace,
-} from '../calc.js';
-import { periodStart, periodButtons, theme, lineChart, weeklyBarChart } from '../charts.js';
-import { esc } from '../util.js';
+import { getState, getExercise, BODY_PARTS } from '../data/store.js';
+import { toDateStr, dayNumber, dayNumberToDateStr, weekStart, weekRange } from '../logic/dates.js';
+import { strengthSeries, runSeries, weeklyRunDistance, weeklySetsByPart, formatPace } from '../logic/training.js';
+import { periodStart, periodButtons, theme, lineChart, weeklyBarChart } from '../ui/charts.js';
+import { esc } from '../ui/util.js';
 
 const PART_KEYS = Object.keys(BODY_PARTS);
 const round1 = (n) => (Math.round(n * 10) / 10).toString();

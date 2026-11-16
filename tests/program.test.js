@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { generateProgram, describe, swapOptions, autoLevel, estimateMinutes } from '../js/program.js';
-import { mergeCatalog } from '../js/guides.js';
+import { generateProgram, describe, swapOptions, autoLevel, estimateMinutes } from '../js/logic/program.js';
+import { mergeCatalog } from '../js/data/guides.js';
 
 const catalog = JSON.parse(readFileSync(new URL('../data/exercises.json', import.meta.url), 'utf8'));
 const exercises = mergeCatalog([], catalog); // カタログの全種目が入った種目マスタ

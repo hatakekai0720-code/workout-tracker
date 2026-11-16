@@ -1,5 +1,5 @@
 // 種目タブ: 筋肉マップ(3D/2D のマネキン)と種目の一覧。
-import { getState, BODY_PARTS } from '../store.js';
+import { getState, BODY_PARTS } from '../data/store.js';
 import {
   guideFor,
   musclesOf,
@@ -12,13 +12,13 @@ import {
   CATEGORIES,
   CUSTOM_CATEGORY,
   EQUIPMENT,
-} from '../guides.js';
-import { MUSCLES } from '../muscles.js';
+} from '../data/guides.js';
+import { MUSCLES } from '../logic/muscles.js';
 import { createMannequin } from '../mannequin/index.js';
-import { weeklyMuscleSets, heatColor, exercisesForMuscle, recoveryStatus, HEAT_LEGEND, RECOVERY } from '../musclemap.js';
-import { toDateStr } from '../calc.js';
+import { weeklyMuscleSets, heatColor, exercisesForMuscle, recoveryStatus, HEAT_LEGEND, RECOVERY } from '../logic/musclemap.js';
+import { toDateStr } from '../logic/dates.js';
 import { openGuide } from './guide.js';
-import { esc } from '../util.js';
+import { esc } from '../ui/util.js';
 
 const VIEW_BUTTONS = [
   ['front', '前'],

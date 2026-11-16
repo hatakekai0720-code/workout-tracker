@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computePRs, streak, weekSummary, runCalories } from '../js/insights.js';
-import { isAchieved, suggestStrength, suggestRun, rankParts, buildSuggestions, defaultTargetDate } from '../js/suggest.js';
+import { computePRs, streak, weekSummary, runCalories } from '../js/logic/insights.js';
+import { isAchieved, suggestStrength, suggestRun, rankParts, buildSuggestions, defaultTargetDate } from '../js/logic/suggest.js';
 
 const EX = [
   { id: 'sq', name: 'スクワット', kind: 'strength', bodyPart: 'legs', loadType: 'weighted', archived: false },

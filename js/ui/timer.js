@@ -1,7 +1,7 @@
 // セット間のインターバルタイマー。
 // 終了時刻を持って残りを計算するので、アプリを離れて戻っても残り時間は正しい。
 // 画面のどこでも <div data-timer> を置けば同じタイマーが表示される。
-import { getState } from './store.js';
+import { getState } from '../data/store.js';
 import { toast } from './util.js';
 
 const KEY = 'workoutTracker.timer';

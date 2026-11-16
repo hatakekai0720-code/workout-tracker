@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { listAutoBackups, saveAutoBackup, readAutoBackup, needsDailyBackup, dropOldestAutoBackup, AUTO_BACKUP_MAX } from '../js/autobackup.js';
+import { listAutoBackups, saveAutoBackup, readAutoBackup, needsDailyBackup, dropOldestAutoBackup, AUTO_BACKUP_MAX } from '../js/data/autobackup.js';
 import { MemoryStorage } from './memory-storage.js';
 
 const at = (d, h = 9) => new Date(2026, 10, d, h, 0).getTime(); // 2026年11月d日 h時

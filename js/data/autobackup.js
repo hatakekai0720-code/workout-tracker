@@ -4,7 +4,7 @@
 // 1つ = 1つのキー: 'workoutTracker.autoBackup.<保存した時刻(ミリ秒)>.<理由>'。値は保存データの文字列そのまま。
 // 端末の中に置くので、スマホをなくしたときやサイトのデータを消したときは一緒に消える。
 // 操作ミスや不具合から戻すための備えで、書き出しのバックアップの代わりにはならない。
-import { toDateStr } from './calc.js';
+import { toDateStr } from '../logic/dates.js';
 
 const PREFIX = 'workoutTracker.autoBackup.';
 export const AUTO_BACKUP_MAX = 3;

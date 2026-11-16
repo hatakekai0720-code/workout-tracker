@@ -16,7 +16,8 @@ test('事前キャッシュに挙げたファイルがすべて存在する', ()
 test('アプリの JS・CSS がすべて事前キャッシュに入っている', () => {
   const files = [
     ...readdirSync(`${root}js`).filter((f) => f.endsWith('.js')).map((f) => `js/${f}`),
-    ...readdirSync(`${root}js/views`).map((f) => `js/views/${f}`),
+    ...['data', 'logic', 'ui'].flatMap((d) => readdirSync(`${root}js/${d}`).map((f) => `js/${d}/${f}`)),
+    ...readdirSync(`${root}js/views`, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? readdirSync(`${root}js/views/${e.name}`).map((f) => `js/views/${e.name}/${f}`) : [`js/views/${e.name}`])),
     ...readdirSync(`${root}js/mannequin`).map((f) => `js/mannequin/${f}`),
     ...readdirSync(`${root}css`).map((f) => `css/${f}`),
     ...readdirSync(`${root}data`).map((f) => `data/${f}`),
@@ -40,6 +41,6 @@ test('importmap と Service Worker で Three.js の版がそろっている', ()
 });
 
 test('アプリの版と Service Worker の版がそろっている', () => {
-  const util = readFileSync(`${root}js/util.js`, 'utf8');
+  const util = readFileSync(`${root}js/ui/util.js`, 'utf8');
   assert.equal(util.match(/APP_VERSION = '([^']+)'/)[1], sw.match(/const VERSION = '([^']+)'/)[1]);
 });

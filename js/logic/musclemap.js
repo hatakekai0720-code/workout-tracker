@@ -1,5 +1,5 @@
 // 筋肉マップ用の集計。DOM や保存先には触れない。
-import { weekStart, addDays } from './calc.js';
+import { weekStart, addDays } from './dates.js';
 
 const SUB_WEIGHT = 0.5; // サブで効く筋肉は、メインの半分として数える
 const RUN_SETS = 3; // ラン1回は 3 セット相当として数える

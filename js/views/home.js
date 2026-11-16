@@ -1,16 +1,17 @@
 // ホーム: 今週のまとめ・継続日数、次のメニュー提案、自己ベスト。
-import { getState, getExercise, upsertEntry, removeProgramEntries, BODY_PARTS } from '../store.js';
-import { toDateStr, formatDateJa, formatShortDate, describePlan, dayNumber, addDays } from '../calc.js';
-import { timerHtml, refreshTimers } from '../timer.js';
-import { computePRs, streak, weekSummary, formatPR, PR_LABELS } from '../insights.js';
-import { buildSuggestions, defaultTargetDate } from '../suggest.js';
-import { isAvailable } from '../guides.js';
+import { getState, getExercise, upsertEntry, removeProgramEntries, BODY_PARTS } from '../data/store.js';
+import { toDateStr, formatDateJa, formatShortDate, dayNumber, addDays } from '../logic/dates.js';
+import { describePlan } from '../logic/training.js';
+import { timerHtml, refreshTimers } from '../ui/timer.js';
+import { computePRs, streak, weekSummary, formatPR, PR_LABELS } from '../logic/insights.js';
+import { buildSuggestions, defaultTargetDate } from '../logic/suggest.js';
+import { isAvailable } from '../data/guides.js';
 import { openEntryForm } from './entry.js';
 import { openProgram } from './program.js';
 import { focusCalendarDate } from './calendar.js';
-import { toMin, fromMin, DEFAULT_TRAINING_MIN } from '../schedule.js';
-import { GOALS } from '../program.js';
-import { esc, toast } from '../util.js';
+import { toMin, fromMin, DEFAULT_TRAINING_MIN } from '../logic/schedule.js';
+import { GOALS } from '../logic/program.js';
+import { esc, toast } from '../ui/util.js';
 
 const RECENT_PR_COUNT = 5;
 const BACKUP_REMIND_DAYS = 14;

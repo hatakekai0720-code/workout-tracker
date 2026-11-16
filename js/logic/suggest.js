@@ -1,5 +1,6 @@
 // 次のメニュー提案(ルールベース)。DOM や保存先には触れない。
-import { addDays, weekStart, formatShortDate, describePlan, describeActual } from './calc.js';
+import { addDays, weekStart, formatShortDate } from './dates.js';
+import { describePlan, describeActual } from './training.js';
 
 const TIMED_STEP_SEC = 5;
 const RUN_WEEKLY_GROWTH = 1.1;

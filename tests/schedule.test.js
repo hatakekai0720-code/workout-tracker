@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   toMin, fromMin, weekdayOf, expandEvents, firstOccurrence, editEvent, deleteEvent,
   termEvents, copyWeek, findConflicts, freeStarts, rescheduleOptions,
-} from '../js/schedule.js';
+} from '../js/logic/schedule.js';
 
 const ev = (over) => ({ id: 'a', title: 'バイト', kind: 'work', date: '2026-11-02', start: '17:00', end: '22:00', repeat: null, exceptions: {}, termId: null, ...over });
 const dates = (events, from, to) => expandEvents(events, from, to).map((o) => o.date);
