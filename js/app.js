@@ -10,7 +10,7 @@ import { initTheme } from './theme.js';
 import { initTimer, refreshTimers } from './timer.js';
 import { toast } from './util.js';
 
-initStore();
+const loaded = initStore();
 await loadGuides();
 syncCatalog();
 window.Chart.defaults.font.family = "'Noto Sans JP', sans-serif";
@@ -48,6 +48,10 @@ show(location.hash.slice(1));
 
 // グラフの文字は読み込み前のフォントで描かれるので、読み込み後に描き直す
 document.fonts?.ready.then(() => show(location.hash.slice(1)));
+
+// 保存データを変換したとき・新しい版のデータを読んだときは知らせる
+if (loaded.migratedFrom !== null) toast('データを新しい形に変換しました(変換前の状態は自動バックアップに残しています)');
+else if (loaded.tooNew) toast('新しい版のアプリで保存したデータです。アプリを最新の版にしてください');
 
 // オフラインでも開けるようにする。失敗してもアプリ自体は動く。
 if ('serviceWorker' in navigator) {

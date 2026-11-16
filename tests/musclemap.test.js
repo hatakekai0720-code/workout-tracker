@@ -82,3 +82,19 @@ test('recoveryStatus: 最後にメインで鍛えてからの時間で3段階に
   // 1週間より前は色を付けない
   assert.deepEqual(recoveryStatus([lift('2026-11-08', 'push', [10])], EX, musclesOf, now), {});
 });
+
+test('recoveryStatus: 境目(ちょうど48時間・72時間・7日)と、数えない記録', () => {
+  const now = new Date(2026, 10, 16, 12, 0).getTime(); // 11/16 正午
+  const one = (date, time, id = 'bench', status = 'done') => recoveryStatus([{ ...lift(date, id, [8], status), ...(time ? { time } : {}) }], EX, musclesOf, now);
+  assert.equal(one('2026-11-14', '12:01').chest.status, 'rest'); // 47時間59分 → 休ませる
+  assert.equal(one('2026-11-14', null).chest.status, 'soon'); // 時刻なしは正午 → ちょうど48時間で「もう少し」
+  assert.equal(one('2026-11-13', '12:01').chest.status, 'soon'); // 71時間59分
+  assert.equal(one('2026-11-13', '12:00').chest.status, 'ready'); // ちょうど72時間で回復済み
+  assert.equal(one('2026-11-09', '12:00').chest.status, 'ready'); // ちょうど7日はまだ出す
+  assert.deepEqual(one('2026-11-09', '11:59'), {}); // 7日を過ぎたら出さない
+  assert.deepEqual(one('2026-11-16', '13:00'), {}); // これからの時刻の記録は数えない
+  assert.deepEqual(one('2026-11-16', '08:00', 'bench', 'planned'), {}); // 予定は数えない
+  assert.deepEqual(one('2026-11-16', '08:00', 'gone'), {}); // 種目マスタにない記録は数えない
+  assert.deepEqual(one('2026-11-16', '08:00', 'none'), {}); // 効く筋肉が決まっていない種目
+  assert.ok(Math.abs(one('2026-11-16', '09:30').chest.hours - 2.5) < 1e-9);
+});

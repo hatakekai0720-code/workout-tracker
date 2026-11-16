@@ -190,3 +190,11 @@ test('RPE とプログラムを復元で残す。壊れたプログラムはそ�
   assert.equal(broken.state.program, null);
   assert.equal(parse(valid()).state.program, null);
 });
+
+test('自動バックアップから戻すときは、最終バックアップの日付を書き換えない', () => {
+  const text = JSON.stringify(valid());
+  assert.equal(parseBackup(text, '2026-11-15').state.settings.lastBackupAt, '2026-11-15'); // ファイルから: 今日
+  assert.equal(parseBackup(text, '2026-11-15', { keepLastBackupAt: true }).state.settings.lastBackupAt, '2026-01-01');
+  const none = { ...valid(), settings: {} };
+  assert.equal(parseBackup(JSON.stringify(none), '2026-11-15', { keepLastBackupAt: true }).state.settings.lastBackupAt, null);
+});
