@@ -17,7 +17,7 @@ import { applyTheme } from '../theme.js';
 import { musclesOf, syncCatalog, guideFor, isAvailable, ownedEquipment, CATEGORIES, EQUIPMENT } from '../guides.js';
 import { MUSCLES, MUSCLE_KEYS, cleanMuscles } from '../muscles.js';
 import { EVENT_KINDS, timeOptions } from '../schedule.js';
-import { esc, toast } from '../util.js';
+import { esc, toast, APP_VERSION } from '../util.js';
 
 const THEMES = [
   { key: 'auto', label: '端末に合わせる' },
@@ -145,7 +145,28 @@ export function mountSettings(root) {
         <p class="hint">iPhone: Safari の共有ボタン →「ホーム画面に追加」</p>
         <p class="hint">Android: Chrome のメニュー →「アプリをインストール」または「ホーム画面に追加」</p>
         <p class="hint">追加すると、アプリのように全画面で開き、電波のない場所でも使えます。</p>
+      </section>
+      <section class="card">
+        <h2>アプリの版</h2>
+        <p class="hint">いまの版: <b>${APP_VERSION}</b></p>
+        <button type="button" class="btn-ghost wide" data-action="update-app">最新の版にする</button>
+        <p class="hint">新しい版が出ているのに画面が変わらないときに押してください。記録は消えません。</p>
       </section>`;
+  }
+
+  // ---- アプリの更新 ----
+  // Service Worker に新しい版を確かめさせてから読み込み直す。記録(localStorage)には触れない。
+  // 読み込み直すときは、Service Worker がサーバーに最新を確かめる(電波がなければ保存してある版で開く)。
+  async function updateApp(button) {
+    button.disabled = true;
+    button.textContent = '確認しています…';
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration();
+      await reg?.update();
+    } catch {
+      // 電波がないときなど。読み込み直すだけにする
+    }
+    location.reload();
   }
 
   // ---- バックアップ ----
@@ -353,6 +374,9 @@ export function mountSettings(root) {
     const t = ev.target.closest('[data-action]');
     if (!t) return;
     switch (t.dataset.action) {
+      case 'update-app':
+        updateApp(t);
+        break;
       case 'theme':
         setSettings({ theme: t.dataset.key });
         applyTheme();
