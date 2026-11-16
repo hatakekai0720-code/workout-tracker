@@ -4,7 +4,7 @@
 
 export const COLORS = {
   body: '#f1dccc', // 筋肉以外(頭・関節・手足)
-  idle: '#d79d92', // 色を付けていない筋肉
+  idle: '#cdc3ba', // 色を付けていない筋肉(今週まだ使っていない)
   selected: '#316ac5', // タップして選んだ筋肉
   outline: '#7a5f55',
 };

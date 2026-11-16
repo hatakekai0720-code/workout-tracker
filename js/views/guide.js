@@ -4,6 +4,8 @@ import { findPrevious, formatShortDate, describeActual } from '../calc.js';
 import { computePRs, formatPR, PR_LABELS } from '../insights.js';
 import { guideFor, musclesOf, exerciseForGuide, CUSTOM_FIELDS, CATEGORIES, EQUIPMENT, PLACES, LEVELS } from '../guides.js';
 import { MUSCLES } from '../muscles.js';
+import { createMannequin } from '../mannequin/index.js';
+import { bestView } from '../musclemap.js';
 import { esc, toast } from '../util.js';
 
 const FAR_FUTURE = '9999-12-31';
@@ -31,10 +33,46 @@ function musclesHtml(ex) {
   if (!m.main.length && !m.sub.length) {
     return '<p class="empty">未設定です。「設定」→ 種目マスタで選べます</p>';
   }
-  return `<dl class="kv">
-    <dt>メイン</dt><dd>${chips(m.main, 'main') || '—'}</dd>
-    <dt>サブ</dt><dd>${chips(m.sub, 'sub') || '—'}</dd>
-  </dl>`;
+  return `<div class="mq-tools">
+      <div class="segmented" role="group" aria-label="向き" data-guide-views hidden>
+        <button type="button" data-action="mq-view" data-key="front">前</button>
+        <button type="button" data-action="mq-view" data-key="back">後ろ</button>
+        <button type="button" data-action="mq-view" data-key="side">横</button>
+      </div>
+    </div>
+    <div class="mq-stage small" data-guide-stage><p class="empty">読み込み中…</p></div>
+    <dl class="kv after-stage">
+      <dt>メイン</dt><dd>${chips(m.main, 'main') || '—'}</dd>
+      <dt>サブ</dt><dd>${chips(m.sub, 'sub') || '—'}</dd>
+    </dl>`;
+}
+
+// 解説ページのマネキン。効く筋肉を、ラベルと同じ色(メイン = オレンジ、サブ = 黄)で光らせる。
+const GLOW = { main: '#eb6834', sub: '#ffd27a' };
+let mannequin = null;
+let mountToken = 0;
+
+function disposeMannequin() {
+  mountToken++; // 読み込み中のものがあれば、完成しても使わない
+  mannequin?.dispose();
+  mannequin = null;
+}
+
+async function mountMannequin(ex) {
+  disposeMannequin();
+  const stage = dlg.querySelector('[data-guide-stage]');
+  if (!stage) return; // 効く筋肉が未設定
+  const token = mountToken;
+  const m = musclesOf(ex);
+  const view = await createMannequin(stage, { onSelect() {} });
+  if (token !== mountToken || !stage.isConnected) return view.dispose(); // 待っている間に閉じた・描き直した
+  mannequin = view;
+  const colors = {};
+  for (const k of m.sub) colors[k] = GLOW.sub;
+  for (const k of m.main) colors[k] = GLOW.main;
+  view.setColors(colors);
+  view.setView(bestView(m), false);
+  dlg.querySelector('[data-guide-views]').hidden = view.mode !== '3d';
 }
 
 // 器具・場所・難易度・代わりの種目
@@ -159,9 +197,11 @@ function render() {
       </div>
     </div>`;
   dlg.querySelector('.sheet-body').scrollTop = scroll;
+  mountMannequin(ex);
 }
 
 function close() {
+  disposeMannequin();
   dlg.close();
   const { onClose } = cur;
   cur = null;
@@ -183,6 +223,9 @@ function setup() {
     switch (t.dataset.action) {
       case 'close':
         close();
+        break;
+      case 'mq-view':
+        mannequin?.setView(t.dataset.key);
         break;
       case 'open-alt':
         cur = { ...cur, exerciseId: t.dataset.id, editing: false, draft: {} };

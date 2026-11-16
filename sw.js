@@ -2,7 +2,7 @@
 // - アプリ本体はネットワーク優先(つながれば常に最新、だめならキャッシュ)
 // - フォントは変わらないのでキャッシュ優先(使った分だけ貯まる)
 // PRECACHE を変えたら VERSION を上げる(tests/sw.test.js がファイルの過不足を確かめる)。
-const VERSION = 'v8';
+const VERSION = 'v9';
 const SHELL = `shell-${VERSION}`;
 const FONTS = 'fonts-v1';
 const CDN = 'cdn-v1';
@@ -26,6 +26,7 @@ const PRECACHE = [
   'js/mannequin/model.js',
   'js/mannequin/svg-view.js',
   'js/mannequin/three-view.js',
+  'js/musclemap.js',
   'js/muscles.js',
   'js/store.js',
   'js/suggest.js',

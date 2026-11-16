@@ -7,6 +7,7 @@ import {
   categoryOf,
   ownedEquipment,
   missingEquipment,
+  isAvailable,
   LEVELS,
   CATEGORIES,
   CUSTOM_CATEGORY,
@@ -14,6 +15,8 @@ import {
 } from '../guides.js';
 import { MUSCLES } from '../muscles.js';
 import { createMannequin } from '../mannequin/index.js';
+import { weeklyMuscleSets, heatColor, exercisesForMuscle, HEAT_LEGEND } from '../musclemap.js';
+import { toDateStr } from '../calc.js';
 import { openGuide } from './guide.js';
 import { esc } from '../util.js';
 
@@ -36,7 +39,12 @@ export function mountExercises(root) {
         <button type="button" class="btn-ghost" data-action="toggle-mode" hidden></button>
       </div>
       <div class="mq-stage" data-stage><p class="empty">読み込み中…</p></div>
-      <p class="mq-info" data-info></p>
+      <div class="heat-legend" aria-label="色の意味">
+        <span>今週のセット数</span><span>少</span>
+        <i style="background: linear-gradient(90deg, ${HEAT_LEGEND.from}, ${HEAT_LEGEND.to})"></i>
+        <span>多(${HEAT_LEGEND.max}以上)</span>
+      </div>
+      <div class="mq-info" data-info></div>
     </section>
     <div data-list></div>`;
   const stage = root.querySelector('[data-stage]');
@@ -51,12 +59,54 @@ export function mountExercises(root) {
   // 一覧の絞り込み。showAll: 持っていない器具の種目も出すか
   const filter = { category: '', part: '', level: '', showAll: false };
 
+  let weekly = {}; // 今週のセット数(筋肉ごと)
+
+  const fmtSets = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+
+  // 選んだ筋肉に効く種目(メインが上、サブが下。持っている器具でできる種目が先)
+  function muscleRows(list) {
+    return `<ul class="entry-list compact">${list
+      .map((x) => {
+        const g = guideFor(x);
+        const missing = missingEquipment(x);
+        return `<li><button type="button" class="entry ${missing.length ? 'archived' : ''}" data-action="guide" data-id="${x.id}">
+          <span class="entry-main">
+            <span class="entry-name">${esc(x.name)}</span>
+            <span class="entry-sub">${g ? LEVELS[g.level] : '自分で追加'}${missing.length ? ` ・ 持っていない器具: ${missing.map((k) => EQUIPMENT[k]).join('・')}` : ''}</span>
+          </span>
+          <span class="chev">›</span>
+        </button></li>`;
+      })
+      .join('')}</ul>`;
+  }
+
   function showInfo() {
-    if (selected) info.innerHTML = `選択中: <b>${MUSCLES[selected]}</b>`;
-    else if (mannequin?.mode === '3d') info.textContent = '1本指でドラッグして回転、2本指でつまんで拡大・縮小。筋肉をタップすると名前が出ます。';
-    else if (mannequin?.reason === 'webgl') info.textContent = 'この端末では3Dが使えないため、2Dで表示しています。筋肉をタップすると名前が出ます。';
-    else if (mannequin?.reason === 'load') info.textContent = '3Dの部品を読み込めなかったため、2Dで表示しています(通信できる状態で開き直すと3Dになります)。';
-    else info.textContent = '筋肉をタップすると名前が出ます。';
+    if (selected) {
+      const w = weekly[selected] || { main: 0, sub: 0 };
+      const { main, sub } = exercisesForMuscle(getState().exercises, musclesOf, selected, isAvailable);
+      info.innerHTML = `
+        <h3>${MUSCLES[selected]}<small>今週 メイン ${fmtSets(w.main)}セット・サブ ${fmtSets(w.sub)}セット</small></h3>
+        <h4>メインで効く種目</h4>
+        ${main.length ? muscleRows(main) : '<p class="empty">該当する種目はありません</p>'}
+        <h4>サブで効く種目</h4>
+        ${sub.length ? muscleRows(sub) : '<p class="empty">該当する種目はありません</p>'}`;
+      return;
+    }
+    const tap = '筋肉をタップすると、効く種目の一覧が出ます。';
+    let text = tap;
+    if (mannequin?.mode === '3d') text = `1本指でドラッグして回転、2本指でつまんで拡大・縮小。${tap}`;
+    else if (mannequin?.reason === 'webgl') text = `この端末では3Dが使えないため、2Dで表示しています。${tap}`;
+    else if (mannequin?.reason === 'load') text = `3Dの部品を読み込めなかったため、2Dで表示しています(通信できる状態で開き直すと3Dになります)。${tap}`;
+    info.innerHTML = `<p class="hint">${text}</p>`;
+  }
+
+  // 今週のセット数を集計して、マネキンの色に反映する
+  function applyHeat() {
+    const { entries, exercises } = getState();
+    weekly = weeklyMuscleSets(entries, exercises, musclesOf, toDateStr(new Date()));
+    const colors = {};
+    for (const [key, w] of Object.entries(weekly)) colors[key] = heatColor(w.score);
+    mannequin?.setColors(colors);
   }
 
   function select(key) {
@@ -73,6 +123,7 @@ export function mountExercises(root) {
     stage.innerHTML = '<p class="empty">読み込み中…</p>';
     mannequin = await createMannequin(stage, { onSelect: select, prefer2D });
     starting = false;
+    applyHeat();
     mannequin.setSelected(selected);
     views.hidden = mannequin.mode !== '3d';
     // 3D が使える端末だけ、2D との切り替えを出す
@@ -135,6 +186,11 @@ export function mountExercises(root) {
         <p class="hint after">種目をタップすると解説が開きます。種目の追加や、効く筋肉の設定は<a href="#settings">「設定」の種目マスタ</a>からできます。</p>
       </section>`;
     if (!mannequin) startMannequin(); // 初めてこのタブを開いたときに読み込む
+    else {
+      // 記録や器具の設定が変わっているかもしれないので、色と一覧を作り直す
+      applyHeat();
+      showInfo();
+    }
   }
 
   root.addEventListener('change', (ev) => {
