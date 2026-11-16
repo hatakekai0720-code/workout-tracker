@@ -147,6 +147,7 @@ function buildEntry() {
   delete entry.time;
   delete entry.durationMin;
   delete entry.rpe;
+  delete entry.skipReason; // 休んだ・スキップにした予定も、ここで保存すると予定(または実施済み)に戻る
   if (m.done && m.rpe) entry.rpe = Number(m.rpe);
   if (m.time) {
     entry.time = m.time;

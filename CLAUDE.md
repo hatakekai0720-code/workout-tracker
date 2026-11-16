@@ -40,6 +40,7 @@ js/
     store.js          保存データの読み書き(state はここだけが持つ)。起動時に自動バックアップと変換を行い、容量不足なら古い自動バックアップから消す
     migrate.js        保存データの版と、古い版からの自動変換
     workout-session.js トレーニング中モードの途中経過(キー workoutTracker.workout。保存データ本体とは別で、バックアップに含めない。終わったら消す)
+    reschedule-log.js 振り替えの記録(「元に戻す」用)と、自動では動かさない回(キー workoutTracker.reschedule。バックアップに含めない)
     autobackup.js     自動バックアップ(1日1回、その日に初めて開いたとき。直近3つ。キーは workoutTracker.autoBackup.<時刻>.<理由>)。設定画面から戻せる
     backup.js         バックアップ JSON の検証(受け取った値を作り直す。古い形も読む)
     guides.js         種目カタログの読み込みと、種目マスタとの統合(guideId で結びつく)
@@ -53,6 +54,7 @@ js/
     schedule.js       予定(バイト・学校)の繰り返し展開、編集範囲、重なり、空き時間、振り替え候補
     program.js        自動メニュー作成(ルールで組み立てる)
     placement.js      プログラムを空き時間に自動配置
+    reschedule.js     サボった日の振り替え(未実施の回の検出、順番を保ったずらし方、再開プラン、休み明けの軽め)
     workout.js        トレーニング中モードの進め方(セット完了・RIR・休憩・スキップ・入れ替え・終了時のまとめ)
   ui/                 画面から使う道具(DOM に触れる)
     charts.js theme.js timer.js util.js
@@ -61,6 +63,7 @@ js/
   views/              各画面(home, calendar, exercises, stats, body, settings と、各ダイアログ)
     workout.js        トレーニング中モード(全画面。Wake Lock、休憩の終わり3秒前から音と振動。よく使うボタンは画面の下)。
                       ホームの「今日のトレーニング」とカレンダーの今日の欄から開始。途中で閉じても起動時に続きから開く
+    reschedule.js     サボった日の振り替え(起動時とホーム表示時に自動で実行。ホームのバナーで 元に戻す/休んだ/スキップ/再開プラン)
     program.js        自動メニュー作成ダイアログの入口(画面の切り替えとボタンの受け付け)
     program/          その画面ごとの中身: form(入力)・preview(確認)・place(日程に入れる)・state(共有の状態 ui)
 tests/                各モジュールのテスト(memory-storage.js は localStorage の代わり)
@@ -76,14 +79,18 @@ tests/                各モジュールのテスト(memory-storage.js は local
   - カタログの種目は起動時に足される。削除はできず、非表示(`archived`)にする。
 - `entries`: トレーニングの予定と実績。`date`、`exerciseId`、`status`(planned/done)、`plan`、`actual`、`memo`。任意で `time`、`durationMin`、`rpe`、プログラム由来なら `programId`・`sessionKey`(1回ぶんの種目で共通)・`sessionLabel`。
   - トレーニング中モードで足す任意の項目: `actual.sets[].rir`(あと何回できたか 0〜4。4 は「4以上」)、`plan.restSec`(プログラム由来の休憩秒数)、`doneAt`(完了した時刻)、`swappedFrom`(入れ替える前の種目 id)。途中で入れ替えた種目は、元の予定を写した新しい記録になる。
-- `bodyLogs`、`profile`、`settings`(テーマ、タイマー、`ownedEquipment`、`timeStepMin`、`dayStart`/`dayEnd`、`restSec`(トレーニング中モードの休憩の既定) など)。
+  - `status` は planned/done に加えて `skipped`(休んだ・スキップした予定)。そのとき `skipReason`(sick=休んだ/skip=スキップ)。
+  - 軽くした予定は `basePlan`(軽くする前の予定)と `adjustReason`(return=休み明け/restart=再開プラン/pain・recover=痛み、フェーズ3)を持つ。
+- `bodyLogs`、`profile`、`settings`(テーマ、タイマー、`ownedEquipment`、`timeStepMin`、`dayStart`/`dayEnd`、`restSec`(トレーニング中モードの休憩の既定)、`autoReschedule`(auto/manual) など)。
 - `events`(予定)・`eventTemplates`・`terms`(学期): 形は `js/logic/schedule.js` の冒頭のコメント。
 - `program`: 自動メニュー作成で保存したプログラム(1つだけ)。`config`、`templates`、`schedule`。
 
 ## 決めてきたルール(変える前に利用者に確認する)
 
 - 提案: 達成なら +2.5kg(自重は +1 回、時間は +5 秒)、2回連続未達は据え置き。前日の部位は外す。ランは週 +10% 以内。
-- 継続日数: 予定を入れた日のうち実施した日の連続。休養日では途切れない。
+- 継続日数: 予定を入れた日のうち実施した日の連続。休養日では途切れない。「休んだ」にした予定も休養日と同じ(途切れない)。「スキップ」は途切れる。
+- 振り替え: 過去の未実施のプログラムの回を、順番を保って次の空き時間へ(前の回の翌日以降、同じ部位は48時間空ける、予定の前後30分を避ける。押し出された後ろの回も順にずらす)。手で入れた単発の予定は動かさない。
+  7日以上空いたら自動では動かさず、再開プラン(残りを同じ日数だけずらし、最初の1週間は重さ8割・セット−1)を勧める。「休んだ」なら次の1回を重さ9割・セット−1(どちらも2セットは残す)。
 - 筋肉マップの色: メイン + サブ×0.5 のセット数(ラン1回=3セット相当)。回復は 48/72 時間で3段階。
 - 自動メニュー作成: 週1〜3回は全身、4回は上下、5〜6回は押す/引く/脚。重点部位は週10〜20セット、それ以外は週12セットまで。4週ごとに軽めの週。
 - 自動配置: 予定の前後30分を避ける。同じ部位は48時間以上空ける。夜=18〜22時など。ランは「筋トレと同じ日にしない」(`program.config.separateRun`、任意。新規作成では最初からオン)を選べる。オンなら筋トレの日を強く避け、空いている日がない週だけ注意つきで同じ日にする。オフ(古いプログラム)は従来どおり軽く避けるだけ。

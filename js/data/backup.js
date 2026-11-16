@@ -51,7 +51,7 @@ function entry(e, exById, seen) {
   seen.add(e.id);
   const ex = exById.get(e.exerciseId);
   if (!ex) fail('種目マスタにない種目の記録が含まれています');
-  if (e.status !== 'planned' && e.status !== 'done') fail('記録の状態が正しくありません');
+  if (!['planned', 'done', 'skipped'].includes(e.status)) fail('記録の状態が正しくありません'); // skipped: 休んだ・スキップした予定
   const done = e.status === 'done';
   const bad = () => fail(`${e.date} の「${ex.name}」の記録が正しくありません`);
   let plan;
@@ -101,6 +101,14 @@ function entry(e, exById, seen) {
   if (typeof e.programId === 'string' && ID.test(e.programId)) out.programId = e.programId;
   if (typeof e.sessionKey === 'string' && /^[A-Za-z0-9_:-]{1,80}$/.test(e.sessionKey)) out.sessionKey = e.sessionKey;
   if (typeof e.sessionLabel === 'string' && e.sessionLabel) out.sessionLabel = e.sessionLabel.slice(0, 30);
+  // 振り替えの印: 休んだ/スキップの理由、軽くする前の予定と、軽くした理由
+  if (e.status === 'skipped') out.skipReason = e.skipReason === 'sick' ? 'sick' : 'skip';
+  if (isObj(e.basePlan) && e.status === 'planned') {
+    const b = e.basePlan;
+    if (ex.kind === 'run' && num(b.distanceKm) && b.distanceKm > 0) out.basePlan = { distanceKm: b.distanceKm, durationSec: num(b.durationSec) && b.durationSec > 0 ? b.durationSec : null };
+    else if (ex.kind !== 'run' && num(b.weightKg) && int(b.reps, 1) && int(b.sets, 1)) out.basePlan = { weightKg: b.weightKg, reps: b.reps, sets: b.sets, ...(int(b.restSec, 1) && b.restSec <= 900 ? { restSec: b.restSec } : {}) };
+    if (out.basePlan && ['return', 'restart', 'pain', 'recover'].includes(e.adjustReason)) out.adjustReason = e.adjustReason;
+  }
   // トレーニング中モードの印: 完了した時刻、入れ替える前の種目
   if (typeof e.doneAt === 'string' && !Number.isNaN(Date.parse(e.doneAt))) out.doneAt = e.doneAt.slice(0, 40);
   if (typeof e.swappedFrom === 'string' && exById.has(e.swappedFrom)) out.swappedFrom = e.swappedFrom;
@@ -280,6 +288,7 @@ export function parseBackup(text, today, { keepLastBackupAt = false } = {}) {
           weightStepKg: num(s.weightStepKg) && s.weightStepKg > 0 ? s.weightStepKg : 2.5,
           // 読み込んだファイル自体が最新のバックアップ
           lastBackupAt: keepLastBackupAt ? (typeof s.lastBackupAt === 'string' && DATE.test(s.lastBackupAt) ? s.lastBackupAt : null) : today,
+          autoReschedule: s.autoReschedule === 'manual' ? 'manual' : 'auto', // サボった日の振り替え
           restSec: int(s.restSec, 10) && s.restSec <= 600 ? s.restSec : 90, // トレーニング中モードの休憩(既定)
           timeStepMin: [60, 30, 15].includes(s.timeStepMin) ? s.timeStepMin : 60,
           ...dayRange(s),

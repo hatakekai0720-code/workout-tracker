@@ -10,18 +10,18 @@ const WINDOWS = {
   any: [0, 1440, 1080],
 };
 export const EVENT_BUFFER_MIN = 30; // 予定(バイト・学校)の前後に空ける時間
-const MIN_GAP_H = 48; // 同じ部位は最低これだけ空ける
+export const MIN_GAP_H = 48; // 同じ部位は最低これだけ空ける
 const GOOD_GAP_H = 72;
 const RUN_MIN_PER_KM = 7;
 const OUTSIDE_PENALTY = 3; // 希望の時間帯に置けない日は、3日ずらすのと同じくらい避ける
 const SEPARATE_PENALTY = 20; // ランを分ける設定のとき、筋トレと同じ日はほぼ選ばない
 
 const ceil5 = (n) => Math.ceil(n / 5) * 5;
-const stamp = (date, time) => dayNumber(date) * 1440 + toMin(time || '12:00'); // 通しの分
+export const stamp = (date, time) => dayNumber(date) * 1440 + toMin(time || '12:00'); // 通しの分
 const overlaps = ([a1, a2], [b1, b2]) => a1 < b2 && b1 < a2;
 
 // その日のふさがっている時間帯。予定は前後に buffer 分の余裕を足す。
-function busyOf(date, events, fixed, buffer) {
+export function busyOf(date, events, fixed, buffer) {
   const busy = expandEvents(events, date, date).map((o) => [toMin(o.start) - buffer, toMin(o.end) + buffer]);
   for (const f of fixed) if (f.date === date && f.time) busy.push([toMin(f.time), toMin(f.time) + f.durationMin]);
   return busy;
@@ -29,7 +29,7 @@ function busyOf(date, events, fixed, buffer) {
 
 // その日に duration 分のトレーニングを置ける時刻。希望の時間帯の中で、いちばん置きたい時刻に近い空きを選ぶ。
 // 時間帯の中に空きがなければ、それ以外で近い空きを返す(inWindow: false)。空きがなければ null。
-function slotFor(date, duration, timeOfDay, env) {
+export function slotFor(date, duration, timeOfDay, env) {
   const starts = freeStarts(busyOf(date, env.events, env.fixed, EVENT_BUFFER_MIN), duration, env.dayStart, env.dayEnd, env.step);
   if (!starts.length) return null;
   const [from, to, target] = WINDOWS[timeOfDay] || WINDOWS.any;

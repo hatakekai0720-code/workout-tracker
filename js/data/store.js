@@ -27,7 +27,7 @@ function defaultState() {
   return {
     schemaVersion: SCHEMA_VERSION,
     profile: { heightCm: null, targetWeightKg: null },
-    settings: { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: null, ownedEquipment: null, timeStepMin: 60, dayStart: '06:00', dayEnd: '23:00', restSec: 90 },
+    settings: { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: null, ownedEquipment: null, timeStepMin: 60, dayStart: '06:00', dayEnd: '23:00', restSec: 90, autoReschedule: 'auto' },
     exercises: [
       ex('ex_squat', 'ダンベルスクワット', 'strength', 'legs', 'weighted'),
       ex('ex_row', 'ロウ', 'strength', 'back', 'weighted'),
@@ -275,6 +275,65 @@ export function applyWorkoutSaves(saves) {
   }
   save();
   return ids;
+}
+
+// ---- 振り替え(js/logic/reschedule.js) ----
+
+// 1回ぶんずつ日時を動かす。moves: [{ sessionKey, fromDate, toDate, toTime, durationMin }](元に戻すときは from/to を入れ替えて渡す)
+export function applySessionMoves(moves) {
+  for (const m of moves) {
+    for (const e of state.entries) {
+      if (e.sessionKey !== m.sessionKey || e.date !== m.fromDate || e.status !== 'planned') continue;
+      e.date = m.toDate;
+      if (m.toTime) {
+        e.time = m.toTime;
+        if (m.durationMin) e.durationMin = m.durationMin;
+      } else {
+        delete e.time;
+        delete e.durationMin;
+      }
+    }
+  }
+  save();
+}
+
+// 未実施の予定を「休んだ(sick)」「スキップ(skip)」にする
+export function markSkipped(ids, reason) {
+  const set = new Set(ids);
+  for (const e of state.entries) {
+    if (!set.has(e.id) || e.status !== 'planned') continue;
+    e.status = 'skipped';
+    e.skipReason = reason;
+  }
+  save();
+}
+
+// 予定を軽くする。元の予定は basePlan に残す(すでに軽くしてあれば、元の予定は最初のまま)。
+// changes: [{ id, plan }]。返り値: 変えた記録の id
+export function adjustPlans(changes, reason) {
+  const ids = [];
+  for (const c of changes) {
+    const e = state.entries.find((x) => x.id === c.id);
+    if (!e || e.status !== 'planned') continue;
+    e.basePlan ??= e.plan;
+    e.plan = c.plan;
+    e.adjustReason = reason;
+    ids.push(e.id);
+  }
+  save();
+  return ids;
+}
+
+// 軽くした予定を元に戻す
+export function restorePlans(ids) {
+  const set = new Set(ids);
+  for (const e of state.entries) {
+    if (!set.has(e.id) || !e.basePlan) continue;
+    e.plan = e.basePlan;
+    delete e.basePlan;
+    delete e.adjustReason;
+  }
+  save();
 }
 
 // プログラムの1回ぶん(同じ sessionKey で同じ日の記録)を、まとめて別の日時に動かす

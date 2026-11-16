@@ -10,6 +10,7 @@ import { openEntryForm } from './entry.js';
 import { openProgram } from './program.js';
 import { startWorkoutFor, resumeWorkout, discardWorkout, pendingWorkout } from './workout.js';
 import { groupToday } from '../logic/workout.js';
+import { checkMissed, rescheduleBannerHtml, handleRescheduleAction } from './reschedule.js';
 import { focusCalendarDate } from './calendar.js';
 import { toMin, fromMin, DEFAULT_TRAINING_MIN } from '../logic/schedule.js';
 import { GOALS } from '../logic/program.js';
@@ -216,6 +217,7 @@ export function mountHome(root) {
     const today = toDateStr(new Date());
     root.innerHTML = `
       <header class="page-head"><h1>ホーム</h1><span class="page-date">${formatDateJa(today)}</span></header>
+      ${rescheduleBannerHtml()}
       ${backupHtml(state, today)}
       ${todayHtml(state, today)}
       ${summaryHtml(state, today)}
@@ -231,6 +233,7 @@ export function mountHome(root) {
   root.addEventListener('click', (ev) => {
     const t = ev.target.closest('[data-action]');
     if (!t) return;
+    if (handleRescheduleAction(t)) return render();
     const s = current[Number(t.dataset.index)];
     switch (t.dataset.action) {
       case 'wo-start': {
@@ -294,6 +297,7 @@ export function mountHome(root) {
   return {
     render() {
       ui.target = null;
+      checkMissed(); // 日付が変わってから開いたときにも振り替える
       render();
     },
   };

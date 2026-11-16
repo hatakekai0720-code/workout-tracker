@@ -68,7 +68,7 @@ test('設定の不正な値は既定値に戻す', () => {
   v.settings = { theme: 'pink', timerCustomSec: 2, weightStepKg: 0, restSec: 5000 };
   v.profile = { heightCm: 'tall' };
   const { state } = parse(v);
-  assert.deepEqual(state.settings, { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: '2026-11-15', ownedEquipment: null, timeStepMin: 60, dayStart: '06:00', dayEnd: '23:00', restSec: 90 });
+  assert.deepEqual(state.settings, { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: '2026-11-15', ownedEquipment: null, timeStepMin: 60, dayStart: '06:00', dayEnd: '23:00', restSec: 90, autoReschedule: 'auto' });
   assert.deepEqual(state.profile, { heightCm: null, targetWeightKg: null });
 });
 
@@ -222,4 +222,25 @@ test('トレーニング中モードの項目(RIR・休憩・完了時刻・入�
   assert.equal(old.settings.restSec, 90);
   assert.equal('restSec' in old.entries[0].plan, false);
   assert.equal('doneAt' in old.entries[0], false);
+});
+
+test('振り替えの項目(休んだ/スキップ・軽くする前の予定・振り替えの設定)を復元で残す', () => {
+  const data = valid();
+  data.settings.autoReschedule = 'manual';
+  data.entries.push(
+    { id: 'e3', date: '2026-11-09', exerciseId: 'ex_squat', status: 'skipped', skipReason: 'sick', plan: { weightKg: 20, reps: 10, sets: 3 }, actual: null },
+    { id: 'e4', date: '2026-11-09', exerciseId: 'ex_squat', status: 'skipped', skipReason: 'what', plan: { weightKg: 20, reps: 10, sets: 3 }, actual: null },
+    { id: 'e5', date: '2026-11-20', exerciseId: 'ex_squat', status: 'planned', plan: { weightKg: 17.5, reps: 10, sets: 2 }, basePlan: { weightKg: 20, reps: 10, sets: 3 }, adjustReason: 'return', actual: null },
+    { id: 'e6', date: '2026-11-21', exerciseId: 'ex_run', status: 'planned', plan: { distanceKm: 4, durationSec: null }, basePlan: { distanceKm: 'x' }, adjustReason: 'return', actual: null },
+  );
+  const { state, error } = parse(data);
+  assert.equal(error, undefined);
+  assert.equal(state.settings.autoReschedule, 'manual');
+  const [e3, e4, e5, e6] = state.entries.slice(2);
+  assert.deepEqual([e3.status, e3.skipReason, e4.skipReason], ['skipped', 'sick', 'skip']);
+  assert.deepEqual(e5.basePlan, { weightKg: 20, reps: 10, sets: 3 });
+  assert.equal(e5.adjustReason, 'return');
+  assert.equal('basePlan' in e6 || 'adjustReason' in e6, false); // 壊れた元の予定は捨てる
+  assert.equal(parse(valid()).state.settings.autoReschedule, 'auto');
+  assert.ok(parse({ ...valid(), entries: [{ ...valid().entries[0], status: 'gone' }] }).error);
 });

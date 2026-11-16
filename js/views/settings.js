@@ -85,6 +85,14 @@ export function mountSettings(root) {
       </section>
 
       <section class="card">
+        <h2>サボった日の振り替え</h2>
+        <div class="segmented fill" role="group" aria-label="振り替え">
+          ${[['auto', '自動'], ['manual', '手動']].map(([k, v]) => `<button type="button" data-action="auto-reschedule" data-key="${k}" aria-pressed="${(settings.autoReschedule || 'auto') === k}">${v}</button>`).join('')}
+        </div>
+        <p class="hint after">自動: アプリを開いたときに、過去の未実施のプログラムを次の空き時間へずらします(7日以上空いたときは確認します)。手動: ホームに一覧を出し、自分で選びます。</p>
+      </section>
+
+      <section class="card">
         <h2>スケジュール</h2>
         <div class="row">
           <label class="field"><span>時間の単位</span><select data-setting="timeStepMin">
@@ -430,6 +438,11 @@ export function mountSettings(root) {
         break;
       case 'update-app':
         updateApp(t);
+        break;
+      case 'auto-reschedule':
+        setSettings({ autoReschedule: t.dataset.key });
+        toast(t.dataset.key === 'auto' ? '振り替えを自動にしました' : '振り替えを手動にしました');
+        render();
         break;
       case 'theme':
         setSettings({ theme: t.dataset.key });

@@ -76,10 +76,11 @@ export function computePRs(entries, exercises) {
 
 // 継続日数: メニューを入れた日のうち、実施した日が続いた数。
 // メニューのない日(休養日)では途切れない。過去の予定を1つも実施しなかった日で途切れる。
+// 「休んだ(体調不良など)」にした予定は休養日と同じ扱い(数えない)。「スキップ」は実施しなかった予定として数える。
 export function streak(entries, today) {
   const doneByDate = new Map();
   for (const e of entries) {
-    if (e.date > today) continue;
+    if (e.date > today || (e.status === 'skipped' && e.skipReason === 'sick')) continue;
     doneByDate.set(e.date, doneByDate.get(e.date) || e.status === 'done');
   }
   let count = 0;

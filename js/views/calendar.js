@@ -55,6 +55,8 @@ export function mountCalendar(root) {
     } else selectDate(addDays(ui.selected, ui.view === 'week' ? 7 * dir : dir));
   }
 
+  const ADJUST_LABELS = { return: '休み明けで軽め', restart: '再開プランで軽め', pain: '痛みに合わせて調整', recover: '回復中で軽め' };
+
   function dots(entries) {
     const shown = entries.slice(0, MAX_DOTS).map((e) => {
       const kind = getExercise(e.exerciseId)?.kind === 'run' ? 'run' : 'strength';
@@ -86,10 +88,11 @@ export function mountCalendar(root) {
         if (key && key !== lastKey) head = sessionHead(e, range, sorted.filter((x) => x.sessionKey === e.sessionKey && (x.time || '') === (e.time || '')));
         lastKey = key;
         return `${head}<li><button type="button" class="entry ${e.status} ${key ? 'in-session' : ''}" data-action="edit" data-id="${e.id}">
-          <span class="entry-mark">${done ? '✓' : ''}</span>
+          <span class="entry-mark">${done ? '✓' : e.status === 'skipped' ? '－' : ''}</span>
           <span class="entry-main">
             <span class="entry-name">${esc(ex.name)}${tag}</span>
-            <span class="entry-sub">${range && !key ? `${range} ・ ` : ''}${done ? '' : '予定 '}${esc(summary)}</span>
+            <span class="entry-sub">${range && !key ? `${range} ・ ` : ''}${done ? '' : e.status === 'skipped' ? (e.skipReason === 'sick' ? '休んだ ' : 'スキップ ') : '予定 '}${esc(summary)}</span>
+            ${e.adjustReason && !done ? `<span class="entry-sub adjusted">${ADJUST_LABELS[e.adjustReason] || '軽め'}(元の予定: ${esc(describePlan(ex, e.basePlan).replace(/^0kg × /, ''))})</span>` : ''}
             ${e.memo && !done ? `<span class="entry-sub">${esc(e.memo)}</span>` : ''}
             ${pr ? `<span class="entry-pr">🏆 自己ベスト ${pr.join('・')}</span>` : ''}
           </span>

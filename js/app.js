@@ -10,11 +10,15 @@ import { initTheme } from './ui/theme.js';
 import { initTimer, refreshTimers } from './ui/timer.js';
 import { toast } from './ui/util.js';
 import { resumeWorkout, pendingWorkout } from './views/workout.js';
+import { checkMissed } from './views/reschedule.js';
 
 const loaded = initStore();
 await loadGuides();
 syncCatalog();
 window.Chart.defaults.font.family = "'Noto Sans JP', sans-serif";
+
+// 過去の未実施の予定を振り替える(設定が自動のとき。結果はホームのバナーに出る)
+checkMissed();
 
 const views = {
   home: mountHome(document.getElementById('view-home')),
