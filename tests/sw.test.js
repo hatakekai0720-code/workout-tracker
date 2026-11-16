@@ -38,3 +38,8 @@ test('importmap と Service Worker で Three.js の版がそろっている', ()
   const map = JSON.parse(html.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]);
   for (const url of Object.values(map.imports)) assert.ok(url.startsWith(prefix), `${url} が ${prefix} で始まっていません`);
 });
+
+test('アプリの版と Service Worker の版がそろっている', () => {
+  const util = readFileSync(`${root}js/util.js`, 'utf8');
+  assert.equal(util.match(/APP_VERSION = '([^']+)'/)[1], sw.match(/const VERSION = '([^']+)'/)[1]);
+});

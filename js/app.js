@@ -8,6 +8,7 @@ import { loadGuides, syncCatalog } from './guides.js';
 import { mountSettings } from './views/settings.js';
 import { initTheme } from './theme.js';
 import { initTimer, refreshTimers } from './timer.js';
+import { toast } from './util.js';
 
 initStore();
 await loadGuides();
@@ -51,6 +52,19 @@ document.fonts?.ready.then(() => show(location.hash.slice(1)));
 // オフラインでも開けるようにする。失敗してもアプリ自体は動く。
 if ('serviceWorker' in navigator) {
   const register = () => navigator.serviceWorker.register('sw.js').catch(() => {});
+  // 新しい版の Service Worker に切り替わったら、1回だけ読み込み直して新しい画面にする。
+  // 最初の登録(まだ何も制御していなかった)ときと、入力中(ダイアログが開いている)ときは読み込み直さない。
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloaded) return;
+    if (document.querySelector('dialog[open]')) {
+      toast('新しい版を受け取りました。アプリを開き直すと反映されます');
+      return;
+    }
+    reloaded = true;
+    location.reload();
+  });
   // このファイルは解説データの読み込みを待つので、ここに来た時点で load が済んでいることがある
   if (document.readyState === 'complete') register();
   else window.addEventListener('load', register);

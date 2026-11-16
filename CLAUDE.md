@@ -29,7 +29,8 @@ https://hatakekai0720-code.github.io/workout-tracker/
 
 ```
 index.html            画面の枠、下タブ、ダイアログ、importmap
-sw.js                 Service Worker(本体はネットワーク優先、フォントと CDN はキャッシュ優先)
+sw.js                 Service Worker(本体はネットワーク優先で HTTP キャッシュを通さない、フォントと CDN はキャッシュ優先)。
+                      VERSION は js/util.js の APP_VERSION とそろえる(設定画面に表示。テストで確認)。新しい版に切り替わると app.js が1回読み込み直す
 data/exercises.json   種目カタログ(筋トレ50種目+ランニング)。解説・器具・難易度・効く筋肉など
 css/style.css         すべてのスタイル
 js/

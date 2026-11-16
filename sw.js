@@ -2,7 +2,7 @@
 // - アプリ本体はネットワーク優先(つながれば常に最新、だめならキャッシュ)
 // - フォントは変わらないのでキャッシュ優先(使った分だけ貯まる)
 // PRECACHE を変えたら VERSION を上げる(tests/sw.test.js がファイルの過不足を確かめる)。
-const VERSION = 'v13';
+const VERSION = 'v14'; // js/util.js の APP_VERSION とそろえる(テストで確認している)
 const SHELL = `shell-${VERSION}`;
 const FONTS = 'fonts-v1';
 const CDN = 'cdn-v1';
@@ -60,7 +60,8 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(SHELL)
-      .then((cache) => cache.addAll(PRECACHE))
+      // ブラウザの HTTP キャッシュ(GitHub Pages は10分)を通さず、必ず最新を取りに行く
+      .then((cache) => cache.addAll(PRECACHE.map((url) => new Request(url, { cache: 'reload' }))))
       .then(() => self.skipWaiting()),
   );
 });
@@ -88,7 +89,8 @@ async function networkFirst(request) {
   const fromCache = async () =>
     (await cache.match(request, { ignoreSearch: true })) ||
     (request.mode === 'navigate' ? cache.match('index.html') : undefined);
-  const fromNetwork = fetch(request).then((res) => {
+  // cache: 'no-cache' で、ブラウザの HTTP キャッシュに古い版が残っていても必ずサーバーに確かめる
+  const fromNetwork = fetch(request.url, { cache: 'no-cache', credentials: 'same-origin' }).then((res) => {
     if (res.ok) cache.put(request, res.clone());
     return res;
   });
