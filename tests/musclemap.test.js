@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { weeklyMuscleSets, heatColor, exercisesForMuscle, bestView, HEAT_LEGEND } from '../js/musclemap.js';
+import { weeklyMuscleSets, heatColor, exercisesForMuscle, bestView, HEAT_LEGEND, recoveryStatus } from '../js/musclemap.js';
 
 const EX = [
   { id: 'push', kind: 'strength', archived: false, m: { main: ['chest', 'triceps'], sub: ['deltFront'] } },
@@ -60,4 +60,25 @@ test('bestView: 光る筋肉が多い側から見せる', () => {
   assert.equal(bestView({ main: ['chest'], sub: ['triceps'] }), 'front');
   assert.equal(bestView({ main: ['glutes', 'hamstrings'], sub: ['erectors', 'abs'] }), 'back');
   assert.equal(bestView({ main: [], sub: [] }), 'front');
+});
+
+test('recoveryStatus: 最後にメインで鍛えてからの時間で3段階に分ける', () => {
+  const now = new Date(2026, 10, 16, 12, 0).getTime(); // 11/16 正午
+  const entries = [
+    lift('2026-11-15', 'push', [10]), // 24時間前 → 胸・三頭は休ませる
+    { ...lift('2026-11-14', 'dips', [8]), time: '08:00' }, // 52時間前だが、三頭は push のほうが新しい
+    { ...lift('2026-11-14', 'bench', [8]), time: '06:00' }, // 胸は push のほうが新しい
+    { date: '2026-11-13', exerciseId: 'run', status: 'done', actual: { distanceKm: 5, durationSec: 1800 } }, // 72時間前 → 回復済み
+    lift('2026-11-01', 'none', [5]),
+    lift('2026-11-16', 'push', [10], 'planned'), // 予定は数えない
+  ];
+  const r = recoveryStatus(entries, EX, musclesOf, now);
+  assert.deepEqual([r.chest.status, Math.round(r.chest.hours)], ['rest', 24]);
+  assert.equal(r.triceps.status, 'rest');
+  assert.deepEqual([r.quads.status, Math.round(r.quads.hours)], ['ready', 72]);
+  assert.equal(r.deltFront, undefined); // サブで効いただけの筋肉は数えない
+  // 52時間前だけなら「もう少し」
+  assert.equal(recoveryStatus([entries[1]], EX, musclesOf, now).triceps.status, 'soon');
+  // 1週間より前は色を付けない
+  assert.deepEqual(recoveryStatus([lift('2026-11-08', 'push', [10])], EX, musclesOf, now), {});
 });

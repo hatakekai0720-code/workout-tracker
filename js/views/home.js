@@ -1,11 +1,15 @@
 // ホーム: 今週のまとめ・継続日数、次のメニュー提案、自己ベスト。
-import { getState, getExercise, upsertEntry, BODY_PARTS } from '../store.js';
-import { toDateStr, formatDateJa, formatShortDate, describePlan, dayNumber } from '../calc.js';
+import { getState, getExercise, upsertEntry, removeProgramEntries, BODY_PARTS } from '../store.js';
+import { toDateStr, formatDateJa, formatShortDate, describePlan, dayNumber, addDays } from '../calc.js';
 import { timerHtml, refreshTimers } from '../timer.js';
 import { computePRs, streak, weekSummary, formatPR, PR_LABELS } from '../insights.js';
 import { buildSuggestions, defaultTargetDate } from '../suggest.js';
 import { isAvailable } from '../guides.js';
 import { openEntryForm } from './entry.js';
+import { openProgram } from './program.js';
+import { focusCalendarDate } from './calendar.js';
+import { toMin, fromMin, DEFAULT_TRAINING_MIN } from '../schedule.js';
+import { GOALS } from '../program.js';
 import { esc, toast } from '../util.js';
 
 const RECENT_PR_COUNT = 5;
@@ -126,6 +130,56 @@ export function mountHome(root) {
     }。設定から書き出せます ›</a>`;
   }
 
+  // 自動メニュー作成で保存したプログラム
+  function programHtml(state) {
+    const p = state.program;
+    if (!p) {
+      return `<section class="card"><h2>プログラム</h2>
+        <p class="hint">目的・回数・使える器具などを選ぶと、数週間ぶんのメニューを自動で組み立てます。</p>
+        <button type="button" class="btn-primary wide first" data-action="program-new">メニューを自動で作る</button>
+      </section>`;
+    }
+    const c = p.config;
+    const mine = state.entries.filter((e) => e.programId === p.id);
+    const sessions = (status) => new Set(mine.filter((e) => e.status === status).map((e) => `${e.date}|${e.sessionKey}`)).size;
+    const left = sessions('planned');
+    const placed = mine.length > 0;
+    return `<section class="card"><h2>プログラム</h2>
+      <p class="prog-summary"><b>${esc(p.name)}</b><span>${GOALS[c.goal]} ・ 1回${c.minutes}分${c.run.perWeek ? ` ・ ラン週${c.run.perWeek}回` : ''}${p.createdAt ? ` ・ ${formatShortDate(p.createdAt)}作成` : ''}</span>
+        <span>${placed ? `カレンダーに登録済み: 残り ${left}回 ・ 実施 ${sessions('done')}回` : 'まだカレンダーに入れていません'}</span></p>
+      <button type="button" class="btn-primary wide first" data-action="program-place">${placed ? '日程を入れ直す' : '日程に入れる(空き時間に自動で配置)'}</button>
+      <button type="button" class="btn-ghost wide" data-action="program-view">内容を見る</button>
+      ${left ? '<button type="button" class="btn-ghost wide" data-action="program-unplace">日程を取り消す(未実施の予定を消す)</button>' : ''}
+      <button type="button" class="btn-ghost wide" data-action="program-new">条件を変えて作り直す</button>
+    </section>`;
+  }
+
+  // プログラムの次の回(今日以降で、まだ実施していない一番近い回)
+  function nextSessionHtml(state, today) {
+    const p = state.program;
+    if (!p) return '';
+    const upcoming = state.entries
+      .filter((e) => e.programId === p.id && e.status === 'planned' && e.date >= today)
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : toMin(a.time || '24:00') - toMin(b.time || '24:00')));
+    if (!upcoming.length) return '';
+    const first = upcoming[0];
+    const group = upcoming.filter((e) => e.date === first.date && e.sessionKey === first.sessionKey);
+    const when = first.date === today ? '今日' : first.date === addDays(today, 1) ? '明日' : formatDateJa(first.date);
+    const range = first.time ? ` ${first.time}〜${fromMin(toMin(first.time) + (first.durationMin || DEFAULT_TRAINING_MIN))}` : ' 時間未定';
+    return `<section class="card">
+      <h2>次のプログラム<small>${when}${range}</small></h2>
+      <p class="prog-summary"><b>${esc(first.sessionLabel || 'プログラム')}</b><span>${formatDateJa(first.date)}${range} ・ ${group.length}種目</span></p>
+      <ul class="entry-list compact">${group
+        .map((e) => {
+          const ex = getExercise(e.exerciseId);
+          return `<li class="next-item"><span class="entry-main"><span class="entry-name">${esc(ex.name)}</span>
+            <span class="entry-sub">${esc(describePlan(ex, e.plan).replace(/^0kg × /, ''))}${e.memo ? ` ・ ${esc(e.memo)}` : ''}</span></span></li>`;
+        })
+        .join('')}</ul>
+      <button type="button" class="btn-primary wide" data-action="open-calendar" data-date="${first.date}">カレンダーで開いて記録する</button>
+    </section>`;
+  }
+
   function render() {
     const state = getState();
     const today = toDateStr(new Date());
@@ -133,8 +187,9 @@ export function mountHome(root) {
       <header class="page-head"><h1>ホーム</h1><span class="page-date">${formatDateJa(today)}</span></header>
       ${backupHtml(state, today)}
       ${summaryHtml(state, today)}
+      ${programHtml(state)}
       <section class="card"><h2>インターバルタイマー</h2>${timerHtml()}</section>
-      ${suggestHtml(state, today)}
+      ${nextSessionHtml(state, today) || suggestHtml(state, today)}
       ${prHtml(state)}`;
     refreshTimers();
   }
@@ -158,6 +213,27 @@ export function mountHome(root) {
         render();
         break;
       }
+      case 'program-new':
+        openProgram({ onChange: render });
+        break;
+      case 'program-place':
+        openProgram({ place: true, onChange: render });
+        break;
+      case 'program-unplace': {
+        const n = getState().entries.filter((e) => e.programId === getState().program.id && e.status === 'planned').length;
+        if (!confirm(`カレンダーに登録した未実施の予定 ${n}件を消します。実施済みの記録は残ります。よろしいですか？`)) break;
+        removeProgramEntries(getState().program.id);
+        toast('日程を取り消しました');
+        render();
+        break;
+      }
+      case 'open-calendar':
+        focusCalendarDate(t.dataset.date);
+        location.hash = '#calendar';
+        break;
+      case 'program-view':
+        openProgram({ view: true, onChange: render });
+        break;
       case 'input':
         openEntryForm({ date: ui.target, exerciseId: s.exercise.id, onChange: render });
         break;

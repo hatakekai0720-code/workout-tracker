@@ -6,6 +6,7 @@ import {
   exerciseInUse,
   saveExercise,
   deleteExercise,
+  deleteTemplate,
   exportJson,
   replaceState,
   BODY_PARTS,
@@ -15,6 +16,7 @@ import { parseBackup } from '../backup.js';
 import { applyTheme } from '../theme.js';
 import { musclesOf, syncCatalog, guideFor, isAvailable, ownedEquipment, CATEGORIES, EQUIPMENT } from '../guides.js';
 import { MUSCLES, MUSCLE_KEYS, cleanMuscles } from '../muscles.js';
+import { EVENT_KINDS, timeOptions } from '../schedule.js';
 import { esc, toast } from '../util.js';
 
 const THEMES = [
@@ -50,7 +52,7 @@ export function mountSettings(root) {
   }
 
   function render() {
-    const { settings, entries, bodyLogs, exercises } = getState();
+    const { settings, entries, bodyLogs, exercises, eventTemplates, events } = getState();
     const owned = ownedEquipment();
     const active = exercises.filter((x) => !x.archived);
     root.innerHTML = `
@@ -76,6 +78,38 @@ export function mountSettings(root) {
       </section>
 
       <section class="card">
+        <h2>スケジュール</h2>
+        <div class="row">
+          <label class="field"><span>時間の単位</span><select data-setting="timeStepMin">
+            ${[60, 30, 15].map((n) => `<option value="${n}" ${n === settings.timeStepMin ? 'selected' : ''}>${n === 60 ? '1時間' : `${n}分`}</option>`).join('')}
+          </select></label>
+          <label class="field"><span>活動できる時間 開始</span><select data-setting="dayStart">
+            ${timeOptions(60, 0, 1380).map((t) => `<option ${t === settings.dayStart ? 'selected' : ''}>${t}</option>`).join('')}
+          </select></label>
+          <label class="field"><span>終了</span><select data-setting="dayEnd">
+            ${timeOptions(60, 60, 1440).map((t) => `<option ${t === settings.dayEnd ? 'selected' : ''}>${t}</option>`).join('')}
+          </select></label>
+        </div>
+        <p class="hint after">週・日のタイムラインに表示する時間帯と、振り替え候補を探す時間帯です。</p>
+        <p class="error" role="alert" data-schedule-error hidden></p>
+        <h3>予定のテンプレート</h3>
+        ${
+          eventTemplates.length
+            ? `<ul class="entry-list">${eventTemplates
+                .map(
+                  (t) => `<li class="term-item"><span class="entry-main">
+                      <span class="entry-name">${esc(t.title)}<span class="tag">${EVENT_KINDS[t.kind]}</span></span>
+                      <span class="entry-sub">${t.start}〜${t.end}</span>
+                    </span>
+                    <button type="button" class="btn-danger" data-action="delete-template" data-id="${t.id}">削除</button></li>`,
+                )
+                .join('')}</ul>`
+            : '<p class="empty">テンプレートはありません</p>'
+        }
+        <p class="hint after">テンプレートは、カレンダーの「＋ 予定を追加」の画面で「この内容をテンプレートに保存」から増やせます。</p>
+      </section>
+
+      <section class="card">
         <h2>持っている器具</h2>
         <label class="toggle"><input type="checkbox" data-field="equip-filter" ${owned ? 'checked' : ''}><span>持っている器具で種目を絞り込む</span></label>
         ${
@@ -98,7 +132,7 @@ export function mountSettings(root) {
       <section class="card">
         <h2>バックアップ</h2>
         <p class="hint">データはこの端末の中だけにあります。機種変更やサイトデータの削除に備えて、ときどき書き出してください。</p>
-        <p class="hint">メニューの記録 ${entries.length}件 ・ 体の記録 ${bodyLogs.length}件 ・
+        <p class="hint">メニューの記録 ${entries.length}件 ・ 体の記録 ${bodyLogs.length}件 ・ 予定 ${events.length}件 ・
           最終バックアップ ${settings.lastBackupAt ? formatDateJa(settings.lastBackupAt) : 'なし'}</p>
         <button type="button" class="btn-primary wide" data-action="export">バックアップを書き出す</button>
         <button type="button" class="btn-ghost wide" data-action="import">バックアップから復元する</button>
@@ -153,7 +187,7 @@ export function mountSettings(root) {
       return;
     }
     const ok = confirm(
-      `今のデータをすべて置き換えます。\n\n復元する内容: メニューの記録 ${state.entries.length}件、体の記録 ${state.bodyLogs.length}件、種目 ${state.exercises.length}件\n\nよろしいですか？`,
+      `今のデータをすべて置き換えます。\n\n復元する内容: メニューの記録 ${state.entries.length}件、体の記録 ${state.bodyLogs.length}件、予定 ${state.events.length}件、種目 ${state.exercises.length}件\n\nよろしいですか？`,
     );
     if (!ok) return;
     replaceState(state);
@@ -324,6 +358,10 @@ export function mountSettings(root) {
         applyTheme();
         render();
         break;
+      case 'delete-template':
+        deleteTemplate(t.dataset.id);
+        render();
+        break;
       case 'add-exercise':
         openDialog(null);
         break;
@@ -341,7 +379,18 @@ export function mountSettings(root) {
 
   root.addEventListener('change', (ev) => {
     const t = ev.target;
-    if (t.dataset.field === 'equip-filter') {
+    if (t.dataset.setting) {
+      const key = t.dataset.setting;
+      const next = { ...getState().settings, [key]: key === 'timeStepMin' ? Number(t.value) : t.value };
+      const errorEl = root.querySelector('[data-schedule-error]');
+      if (next.dayStart >= next.dayEnd) {
+        errorEl.textContent = '終了は開始より後の時刻にしてください';
+        errorEl.hidden = false;
+        return;
+      }
+      setSettings({ [key]: next[key] });
+      render();
+    } else if (t.dataset.field === 'equip-filter') {
       // オンにした直後は何も選んでいない状態(自重だけ)から始める
       setSettings({ ownedEquipment: t.checked ? [] : null });
       render();

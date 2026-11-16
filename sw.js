@@ -2,7 +2,7 @@
 // - アプリ本体はネットワーク優先(つながれば常に最新、だめならキャッシュ)
 // - フォントは変わらないのでキャッシュ優先(使った分だけ貯まる)
 // PRECACHE を変えたら VERSION を上げる(tests/sw.test.js がファイルの過不足を確かめる)。
-const VERSION = 'v9';
+const VERSION = 'v12';
 const SHELL = `shell-${VERSION}`;
 const FONTS = 'fonts-v1';
 const CDN = 'cdn-v1';
@@ -28,6 +28,9 @@ const PRECACHE = [
   'js/mannequin/three-view.js',
   'js/musclemap.js',
   'js/muscles.js',
+  'js/placement.js',
+  'js/program.js',
+  'js/schedule.js',
   'js/store.js',
   'js/suggest.js',
   'js/theme.js',
@@ -36,11 +39,15 @@ const PRECACHE = [
   'js/views/body.js',
   'js/views/calendar.js',
   'js/views/entry.js',
+  'js/views/event.js',
   'js/views/exercises.js',
   'js/views/guide.js',
   'js/views/home.js',
+  'js/views/program.js',
   'js/views/settings.js',
   'js/views/stats.js',
+  'js/views/term.js',
+  'js/views/timeline.js',
   'vendor/chart.umd.min.js',
   'vendor/noto-sans-jp/noto-sans-jp.css',
   'icons/icon-192.png',

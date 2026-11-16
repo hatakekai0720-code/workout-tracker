@@ -15,7 +15,7 @@ import {
 } from '../guides.js';
 import { MUSCLES } from '../muscles.js';
 import { createMannequin } from '../mannequin/index.js';
-import { weeklyMuscleSets, heatColor, exercisesForMuscle, HEAT_LEGEND } from '../musclemap.js';
+import { weeklyMuscleSets, heatColor, exercisesForMuscle, recoveryStatus, HEAT_LEGEND, RECOVERY } from '../musclemap.js';
 import { toDateStr } from '../calc.js';
 import { openGuide } from './guide.js';
 import { esc } from '../util.js';
@@ -39,11 +39,13 @@ export function mountExercises(root) {
         <button type="button" class="btn-ghost" data-action="toggle-mode" hidden></button>
       </div>
       <div class="mq-stage" data-stage><p class="empty">読み込み中…</p></div>
-      <div class="heat-legend" aria-label="色の意味">
-        <span>今週のセット数</span><span>少</span>
-        <i style="background: linear-gradient(90deg, ${HEAT_LEGEND.from}, ${HEAT_LEGEND.to})"></i>
-        <span>多(${HEAT_LEGEND.max}以上)</span>
+      <div class="map-mode">
+        <div class="segmented" role="group" aria-label="色の意味">
+          <button type="button" data-action="map-mode" data-key="sets" aria-pressed="true">今週のセット数</button>
+          <button type="button" data-action="map-mode" data-key="recovery" aria-pressed="false">回復</button>
+        </div>
       </div>
+      <div class="heat-legend" data-legend></div>
       <div class="mq-info" data-info></div>
     </section>
     <div data-list></div>`;
@@ -86,6 +88,11 @@ export function mountExercises(root) {
       const { main, sub } = exercisesForMuscle(getState().exercises, musclesOf, selected, isAvailable);
       info.innerHTML = `
         <h3>${MUSCLES[selected]}<small>今週 メイン ${fmtSets(w.main)}セット・サブ ${fmtSets(w.sub)}セット</small></h3>
+        <p class="hint">${
+          recovery[selected]
+            ? `最後に鍛えてから約 ${Math.round(recovery[selected].hours)} 時間 → ${RECOVERY[recovery[selected].status].label}`
+            : 'この1週間、メインでは鍛えていません'
+        }</p>
         <h4>メインで効く種目</h4>
         ${main.length ? muscleRows(main) : '<p class="empty">該当する種目はありません</p>'}
         <h4>サブで効く種目</h4>
@@ -100,13 +107,25 @@ export function mountExercises(root) {
     info.innerHTML = `<p class="hint">${text}</p>`;
   }
 
-  // 今週のセット数を集計して、マネキンの色に反映する
+  let mapMode = 'sets'; // 'sets'(今週のセット数) | 'recovery'(回復)
+  let recovery = {}; // 筋肉ごとの回復の状態
+
+  // 今週のセット数と回復の状態を集計して、マネキンの色と凡例に反映する
   function applyHeat() {
     const { entries, exercises } = getState();
     weekly = weeklyMuscleSets(entries, exercises, musclesOf, toDateStr(new Date()));
+    recovery = recoveryStatus(entries, exercises, musclesOf, Date.now());
     const colors = {};
-    for (const [key, w] of Object.entries(weekly)) colors[key] = heatColor(w.score);
+    if (mapMode === 'sets') for (const [key, w] of Object.entries(weekly)) colors[key] = heatColor(w.score);
+    else for (const [key, r] of Object.entries(recovery)) colors[key] = RECOVERY[r.status].color;
     mannequin?.setColors(colors);
+    root.querySelector('[data-legend]').innerHTML =
+      mapMode === 'sets'
+        ? `<span>今週のセット数</span><span>少</span><i style="background: linear-gradient(90deg, ${HEAT_LEGEND.from}, ${HEAT_LEGEND.to})"></i><span>多(${HEAT_LEGEND.max}以上)</span>`
+        : `<span class="recovery-legend">${Object.values(RECOVERY)
+            .map((r) => `<span><i style="background:${r.color}"></i>${r.label}</span>`)
+            .join('')}<span><i class="none"></i>1週間以上あいている</span></span>`;
+    for (const b of root.querySelectorAll('[data-action="map-mode"]')) b.setAttribute('aria-pressed', String(b.dataset.key === mapMode));
   }
 
   function select(key) {
@@ -211,6 +230,10 @@ export function mountExercises(root) {
         break;
       case 'view':
         mannequin?.setView(t.dataset.key);
+        break;
+      case 'map-mode':
+        mapMode = t.dataset.key;
+        applyHeat();
         break;
       case 'toggle-mode':
         prefer2D = mannequin?.mode === '3d';

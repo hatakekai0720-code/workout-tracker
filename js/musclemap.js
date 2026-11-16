@@ -62,3 +62,35 @@ export function bestView(muscles) {
   const score = muscles.main.reduce((a, k) => a + 2 * weight(k), 0) + muscles.sub.reduce((a, k) => a + weight(k), 0);
   return score > 0 ? 'back' : 'front';
 }
+
+// ---- 回復マップ ----
+
+export const RECOVERY = {
+  rest: { label: '休ませる(48時間未満)', color: '#d03b3b' },
+  soon: { label: 'もう少し(48〜72時間)', color: '#e8a013' },
+  ready: { label: '回復済み(72時間以上)', color: '#3f9c35' },
+};
+const RECENT_DAYS = 7; // これより前に鍛えた筋肉は、色を付けない
+
+// 筋肉ごとに、最後にメインで鍛えてからの時間と状態を返す: { 筋肉: { hours, status } }
+// 記録に時刻がなければ、その日の正午に行ったものとして数える。1週間より前の分は含めない。
+export function recoveryStatus(entries, exercises, musclesOf, nowMs) {
+  const exById = new Map(exercises.map((x) => [x.id, x]));
+  const last = {};
+  for (const e of entries) {
+    const ex = exById.get(e.exerciseId);
+    if (e.status !== 'done' || !ex) continue;
+    const [y, m, d] = e.date.split('-').map(Number);
+    const [hh, mm] = (e.time || '12:00').split(':').map(Number);
+    const at = new Date(y, m - 1, d, hh, mm).getTime();
+    if (at > nowMs) continue;
+    for (const k of musclesOf(ex).main) if (!(last[k] > at)) last[k] = at;
+  }
+  const out = {};
+  for (const [k, at] of Object.entries(last)) {
+    const hours = (nowMs - at) / 3600000;
+    if (hours > RECENT_DAYS * 24) continue;
+    out[k] = { hours, status: hours < 48 ? 'rest' : hours < 72 ? 'soon' : 'ready' };
+  }
+  return out;
+}

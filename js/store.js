@@ -4,6 +4,8 @@
 //   筋トレ: plan { weightKg, reps, sets } / actual { sets: [{ weightKg, reps }] }
 //           loadType が timed の種目では reps に「秒」を入れる。
 //   ラン  : plan { distanceKm, durationSec|null } / actual { distanceKm, durationSec }
+//   任意  : time 'HH:MM'(開始時刻)、durationMin(所要時間)
+// events(バイト・学校などの予定)の形は js/schedule.js を参照。
 // ペース・1RM などの計算で出せる値は保存しない。
 
 const KEY = 'workoutTracker.data';
@@ -23,7 +25,7 @@ function defaultState() {
   return {
     schemaVersion: SCHEMA_VERSION,
     profile: { heightCm: null, targetWeightKg: null },
-    settings: { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: null, ownedEquipment: null },
+    settings: { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: null, ownedEquipment: null, timeStepMin: 60, dayStart: '06:00', dayEnd: '23:00' },
     exercises: [
       ex('ex_squat', 'ダンベルスクワット', 'strength', 'legs', 'weighted'),
       ex('ex_row', 'ロウ', 'strength', 'back', 'weighted'),
@@ -35,6 +37,13 @@ function defaultState() {
     ],
     entries: [],
     bodyLogs: [],
+    events: [],
+    eventTemplates: [
+      { id: 'tpl_early', title: '早番', kind: 'work', start: '09:00', end: '15:00' },
+      { id: 'tpl_late', title: '遅番', kind: 'work', start: '17:00', end: '22:00' },
+    ],
+    terms: [],
+    program: null, // 自動メニュー作成で保存したプログラム(1つだけ)。形は js/program.js を参照
   };
 }
 
@@ -69,7 +78,8 @@ export const getState = () => state;
 export const getExercise = (id) => state.exercises.find((x) => x.id === id);
 export const getEntry = (id) => state.entries.find((e) => e.id === id);
 
-const newId = () => `e_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+export const makeId = (prefix) => `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+const newId = () => makeId('e');
 
 export function upsertEntry(entry) {
   const saved = entry.id ? entry : { ...entry, id: newId() };
@@ -142,5 +152,70 @@ export function replaceState(next) {
 // 種目マスタを丸ごと差し替える(カタログとの統合用)
 export function setExercises(list) {
   state.exercises = list;
+  save();
+}
+
+// ---- スケジュール(予定・テンプレート・学期) ----
+
+export function setEvents(list) {
+  state.events = list;
+  save();
+}
+
+export function saveTemplate(tpl) {
+  state.eventTemplates = [...state.eventTemplates.filter((t) => t.id !== tpl.id), tpl];
+  save();
+}
+
+export function deleteTemplate(id) {
+  state.eventTemplates = state.eventTemplates.filter((t) => t.id !== id);
+  save();
+}
+
+export function addTerm(term, events) {
+  state.terms = [...state.terms, term];
+  state.events = [...state.events, ...events];
+  save();
+}
+
+// 学期を消すと、その学期の時間割から作った予定も消える
+export function deleteTerm(id) {
+  state.terms = state.terms.filter((t) => t.id !== id);
+  state.events = state.events.filter((e) => e.termId !== id);
+  save();
+}
+
+// ---- プログラム(自動メニュー作成) ----
+
+export function setProgram(program) {
+  state.program = program;
+  save();
+}
+
+// 複数の記録をまとめて追加する(プログラムを日程に入れるとき)
+export function addEntries(list) {
+  for (const e of list) state.entries.push({ ...e, id: newId() });
+  save();
+}
+
+// プログラムから登録した記録のうち、まだ実施していない分を消す。消した件数を返す。
+export function removeProgramEntries(programId) {
+  const before = state.entries.length;
+  state.entries = state.entries.filter((e) => !(e.programId === programId && e.status === 'planned'));
+  save();
+  return before - state.entries.length;
+}
+
+// プログラムの1回ぶん(同じ sessionKey で同じ日の記録)を、まとめて別の日時に動かす
+export function moveSession(sessionKey, fromDate, date, time) {
+  for (const e of state.entries) {
+    if (e.sessionKey !== sessionKey || e.date !== fromDate || e.status !== 'planned') continue;
+    e.date = date;
+    if (time) e.time = time;
+    else {
+      delete e.time;
+      delete e.durationMin;
+    }
+  }
   save();
 }
