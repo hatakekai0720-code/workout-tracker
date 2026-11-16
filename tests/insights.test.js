@@ -215,3 +215,27 @@ test('buildSuggestions: 持っている器具でできない種目と、その�
   // ランもできない設定なら出さない
   assert.deepEqual(buildSuggestions(state, '2026-11-05', (x) => x.kind !== 'run').items.map((i) => i.exercise.id), ['plank', 'sq']);
 });
+
+test('提案の境目: 提案日当日の記録は「前回」に使わない。重量の刻みを変えられる', () => {
+  const done = [lift('2026-11-03', 'sq', [20, 10, 3], [10, 10, 10]), lift('2026-11-05', 'sq', [22.5, 10, 3], [8, 8, 8])];
+  // 11/5 向けの提案では、11/5 当日の未達は見ず、11/3 の達成から +2.5kg
+  assert.equal(suggestStrength(ex('sq'), done, '2026-11-05').plan.weightKg, 22.5);
+  // 11/6 向けなら 11/5 の未達を見る(1回目なので、同じ内容でもう一度)
+  assert.deepEqual([suggestStrength(ex('sq'), done, '2026-11-06').tone, suggestStrength(ex('sq'), done, '2026-11-06').plan.weightKg], ['retry', 22.5]);
+  // 設定の重量の刻み(1kg)
+  assert.equal(suggestStrength(ex('sq'), done.slice(0, 1), '2026-11-04', 1).plan.weightKg, 21);
+  // セット数が予定より少なければ未達
+  assert.equal(isAchieved(lift('2026-11-01', 'sq', [20, 10, 3], [10, 10])), false);
+  // 予定より重い重量でこなしても達成
+  assert.equal(isAchieved(lift('2026-11-01', 'sq', [20, 10, 3], [10, 10, 10], 25)), true);
+});
+
+test('ランの提案の境目: 週は月曜から。先週の分は今週の上限の計算に入れない', () => {
+  const ids = new Set(['run']);
+  // 先週(11/2〜11/8)の日曜に 10km。今週の月曜(11/9)向け → 上限 11km、前回 10km の +10% で 11km
+  const a = suggestRun(ex('run'), [run('2026-11-08', 10, 3600)], ids, '2026-11-09');
+  assert.deepEqual(a.plan, { distanceKm: 11, durationSec: null });
+  // 予定(未実施)の距離も、今週の分として数える
+  const b = suggestRun(ex('run'), [run('2026-11-08', 10, 3600), run('2026-11-10', 10.5, null, 'planned')], ids, '2026-11-11');
+  assert.equal(b.tone, 'limit'); // 残り 0.5km は 1km 未満
+});

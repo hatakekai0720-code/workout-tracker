@@ -9,7 +9,8 @@ https://hatakekai0720-code.github.io/workout-tracker/
 
 - **ビルドなし**: 素の HTML / CSS / JavaScript(ES Modules)。npm の依存パッケージは使わない(`package.json` はテストとサーバー起動のスクリプトだけ)。
 - **データは端末内だけ**: `localStorage` の `workoutTracker.data` に JSON 1 個。サーバーはない。
-- **既存データを壊さない**: 利用者は公開版で実際に記録している。保存データの形を変えるときは、項目を「任意」で足す形にし、古いデータとバックアップがそのまま読めるようにする。`schemaVersion` は 1 のまま。
+- **既存データを壊さない**: 利用者は公開版で実際に記録している。保存データの形を変えるときは、できるだけ項目を「任意」で足す形にし、古いデータとバックアップがそのまま読めるようにする(このときは `schemaVersion` を上げない)。
+  - 足すだけでは済まない変更(名前や形を変える)は、`js/migrate.js` の `SCHEMA_VERSION` を上げ、`MIGRATIONS` に変換を1つ足し、`tests/migrate.test.js` にテストを足す。起動時とバックアップ取り込み時に自動で変換され、変換の前に自動バックアップが取られる。今は版1(変換はまだない)。
 - **計算で出せる値は保存しない**(ペース、1RM、PR、継続日数、移動平均など)。
 - **計算は DOM に触れないモジュールに分け、テストを付ける**。画面(`js/views/`)は薄く保つ。
 - **見た目**: Windows XP 風(青いタイトルバーのウィンドウ、ベージュの地、タスクバー風の下タブ)。フォントは Noto Sans JP(`vendor/` に同梱)。色は `css/style.css` の CSS 変数で、ダークモードは `:root[data-theme="dark"]`。
@@ -35,7 +36,9 @@ data/exercises.json   種目カタログ(筋トレ50種目+ランニング)。�
 css/style.css         すべてのスタイル
 js/
   app.js              起動、タブ切替
-  store.js            保存データの読み書き(state はここだけが持つ)
+  store.js            保存データの読み書き(state はここだけが持つ)。起動時に自動バックアップと変換を行い、容量不足なら古い自動バックアップから消す
+  migrate.js          保存データの版と、古い版からの自動変換
+  autobackup.js       自動バックアップ(1日1回、その日に初めて開いたとき。直近3つ。キーは workoutTracker.autoBackup.<時刻>.<理由>)。設定画面から戻せる
   backup.js           バックアップ JSON の検証(受け取った値を作り直す。古い形も読む)
   calc.js             日付・ペース・1RM・週の集計など
   insights.js         PR・継続日数・今週のまとめ
@@ -50,7 +53,7 @@ js/
   mannequin/          筋肉マップのマネキン(楕円体だけで組む。1つの筋肉を筋頭ごとの楕円体に分ける。3D は Three.js で、筋線維のすじ模様・後ろからの光・足もとの影。2D は SVG)
                       3D は2本指ドラッグ/▲▼ボタンで上下に移動できる(左右・前後には動かない。向きのボタンで全身に戻る)
   views/              各画面(home, calendar, exercises, stats, body, settings と、各ダイアログ)
-tests/                各モジュールのテスト
+tests/                各モジュールのテスト(memory-storage.js は localStorage の代わり)
 ```
 
 ## 保存データの形(主なもの)

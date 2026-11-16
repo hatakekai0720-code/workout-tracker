@@ -183,3 +183,28 @@ test('プログラムの1回ぶん(同じ sessionKey)は、重なりも振り替
   const opts = rescheduleOptions(a, [], [a, b], { dayStart: 360, dayEnd: 1380, step: 60 });
   assert.ok(opts.some((o) => o.date === '2026-11-09' && o.time === '17:00'));
 });
+
+test('空き時間探しの境目: 予定とくっつくのはよい、1日の終わりちょうどまで、入らない日は空', () => {
+  // 10〜12時が予定。9〜10時と12〜13時は、予定とくっつくが重ならないので空き
+  assert.deepEqual(freeStarts([[600, 720]], 60, 540, 780, 60).map(fromMin), ['09:00', '12:00']);
+  // 22〜23時(1日の終わりちょうど)に入る
+  assert.deepEqual(freeStarts([], 60, 1320, 1380, 60).map(fromMin), ['22:00']);
+  // 1日の長さより長いトレーニングは入らない
+  assert.deepEqual(freeStarts([], 120, 1320, 1380, 60), []);
+  // 1日の範囲の外の予定は関係ない。15分きざみ
+  assert.deepEqual(freeStarts([[300, 400], [1400, 1440]], 45, 360 + 60, 360 + 120, 15).map(fromMin), ['07:00', '07:15']);
+  // 予定がいくつもあれば、そのすき間だけ
+  assert.deepEqual(freeStarts([[480, 600], [660, 780]], 60, 480, 900, 60).map(fromMin), ['10:00', '13:00', '14:00']);
+  // 予定が隙間なく並んでいれば空きはない
+  assert.deepEqual(freeStarts([[360, 900], [900, 1380]], 30, 360, 1380, 30), []);
+});
+
+test('振り替え候補は max 件まで。空きがない日は飛ばす', () => {
+  const t = training('t1', '2026-11-09', '18:00');
+  assert.equal(rescheduleOptions(t, [], [t], { dayStart: 360, dayEnd: 1380, step: 60, max: 2 }).length, 2);
+  // 翌日だけ一日中ふさがっている → 翌日の候補はなく、その次の日から
+  const block = ev({ date: '2026-11-10', start: '06:00', end: '23:00' });
+  const opts = rescheduleOptions(t, [block], [t], { dayStart: 360, dayEnd: 1380, step: 60, max: 10 });
+  assert.ok(!opts.some((o) => o.date === '2026-11-10'), JSON.stringify(opts));
+  assert.ok(opts.some((o) => o.date === '2026-11-11'));
+});

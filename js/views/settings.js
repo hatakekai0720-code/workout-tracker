@@ -9,8 +9,12 @@ import {
   deleteTemplate,
   exportJson,
   replaceState,
+  getAutoBackups,
+  readAutoBackupText,
+  autoBackupNow,
   BODY_PARTS,
 } from '../store.js';
+import { BACKUP_REASONS, AUTO_BACKUP_MAX } from '../autobackup.js';
 import { toDateStr, formatDateJa } from '../calc.js';
 import { parseBackup } from '../backup.js';
 import { applyTheme } from '../theme.js';
@@ -138,6 +142,9 @@ export function mountSettings(root) {
         <button type="button" class="btn-ghost wide" data-action="import">バックアップから復元する</button>
         <input type="file" accept="application/json,.json" data-field="import-file" hidden>
         <p class="error" role="alert" data-import-error hidden></p>
+        <h3>自動バックアップ</h3>
+        <p class="hint">1日1回、その日に初めて開いたときに、この端末の中へ自動で保存します(直近${AUTO_BACKUP_MAX}つ)。操作を間違えたときは、タップするとその時点へ戻せます。端末の中にあるので、機種変更には書き出しを使ってください。</p>
+        ${autoBackupRows()}
       </section>
 
       <section class="card">
@@ -170,6 +177,47 @@ export function mountSettings(root) {
   }
 
   // ---- バックアップ ----
+
+  function autoBackupRows() {
+    const list = getAutoBackups();
+    if (!list.length) return '<p class="empty">まだありません(明日以降に開いたときから保存されます)</p>';
+    return `<ul class="entry-list compact">${list
+      .map((b) => {
+        const d = new Date(b.at);
+        const when = `${formatDateJa(toDateStr(d))} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        const counts = b.counts ? `メニューの記録 ${b.counts.entries}件 ・ 体の記録 ${b.counts.bodyLogs}件 ・ 予定 ${b.counts.events}件` : '内容を読めません';
+        return `<li><button type="button" class="entry" data-action="restore-auto" data-key="${esc(b.key)}" data-when="${esc(when)}">
+          <span class="entry-main">
+            <span class="entry-name">${when}(${BACKUP_REASONS[b.reason]})</span>
+            <span class="entry-sub">${counts}</span>
+          </span>
+          <span class="chev">›</span>
+        </button></li>`;
+      })
+      .join('')}</ul>`;
+  }
+
+  // 自動バックアップから戻す。戻す前の今のデータも、自動バックアップに1つ残す。
+  function restoreAuto(key, when) {
+    const errorEl = root.querySelector('[data-import-error]');
+    const text = readAutoBackupText(key);
+    const { state, error } = text ? parseBackup(text, toDateStr(new Date()), { keepLastBackupAt: true }) : { error: 'この自動バックアップは見つかりませんでした' };
+    if (error) {
+      errorEl.textContent = `自動バックアップから戻せません: ${error}`;
+      errorEl.hidden = false;
+      return;
+    }
+    const ok = confirm(
+      `${when}の状態に戻します。\n\n戻す内容: メニューの記録 ${state.entries.length}件、体の記録 ${state.bodyLogs.length}件、予定 ${state.events.length}件\n\n今のデータは「復元の前」として自動バックアップに残します(いちばん古い自動バックアップは消えます)。よろしいですか？`,
+    );
+    if (!ok) return;
+    autoBackupNow('restore');
+    replaceState(state);
+    syncCatalog();
+    applyTheme();
+    toast(`${when}の状態に戻しました`);
+    render();
+  }
 
   async function exportBackup() {
     const today = toDateStr(new Date());
@@ -374,6 +422,9 @@ export function mountSettings(root) {
     const t = ev.target.closest('[data-action]');
     if (!t) return;
     switch (t.dataset.action) {
+      case 'restore-auto':
+        restoreAuto(t.dataset.key, t.dataset.when);
+        break;
       case 'update-app':
         updateApp(t);
         break;

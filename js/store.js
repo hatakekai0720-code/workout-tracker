@@ -8,8 +8,10 @@
 // events(バイト・学校などの予定)の形は js/schedule.js を参照。
 // ペース・1RM などの計算で出せる値は保存しない。
 
+import { SCHEMA_VERSION, migrate } from './migrate.js';
+import { listAutoBackups, readAutoBackup, saveAutoBackup, needsDailyBackup, dropOldestAutoBackup } from './autobackup.js';
+
 const KEY = 'workoutTracker.data';
-const SCHEMA_VERSION = 1;
 
 export const BODY_PARTS = {
   chest: '胸',
@@ -49,17 +51,32 @@ function defaultState() {
 
 let state = null;
 
-export function initStore() {
+// 起動時に読み込む。返り値: { autoBackup: 取った自動バックアップの理由 | null, migratedFrom: 変換前の版 | null, tooNew }
+//   1. 1日1回、読み込んだままの形で自動バックアップを取る
+//   2. 古い版のデータなら、変換の前にもう1つ自動バックアップを取ってから、最新の形に変換して保存する
+//   3. このアプリより新しい版のデータは、変換も版の書き換えもせずに読む(項目は足す形でしか変えないので、たいてい読める)
+export function initStore({ nowMs = Date.now() } = {}) {
+  const result = { autoBackup: null, migratedFrom: null, tooNew: false };
   const raw = localStorage.getItem(KEY);
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.entries) && Array.isArray(parsed.exercises)) {
+        if (needsDailyBackup(listAutoBackups(localStorage), nowMs) && saveAutoBackup(localStorage, raw, { nowMs, reason: 'daily' })) {
+          result.autoBackup = 'daily';
+        }
+        const m = migrate(parsed);
+        result.tooNew = m.tooNew;
+        if (m.from < m.to) {
+          if (result.autoBackup !== 'daily' && saveAutoBackup(localStorage, raw, { nowMs, reason: 'migrate' })) result.autoBackup = 'migrate';
+          result.migratedFrom = m.from;
+        }
         const base = defaultState();
-        state = { ...base, ...parsed, settings: { ...base.settings, ...parsed.settings } };
+        state = { ...base, ...m.data, settings: { ...base.settings, ...m.data.settings } };
         // 集計は日付の昇順を前提にしている
         state.bodyLogs.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-        return;
+        if (result.migratedFrom !== null) save();
+        return result;
       }
       throw new Error('unexpected shape');
     } catch {
@@ -68,11 +85,42 @@ export function initStore() {
     }
   }
   state = defaultState();
+  return result;
 }
 
+// 保存する。端末の容量が足りないときは、古い自動バックアップから消して保存し直す(記録の保存を優先する)。
 function save() {
-  localStorage.setItem(KEY, JSON.stringify(state));
+  const json = JSON.stringify(state);
+  for (;;) {
+    try {
+      localStorage.setItem(KEY, json);
+      return;
+    } catch (err) {
+      if (!dropOldestAutoBackup(localStorage)) throw err;
+    }
+  }
 }
+
+// ---- 自動バックアップ(js/autobackup.js) ----
+
+// 新しい順。[{ key, at, reason, counts: { entries, bodyLogs, events } | null }]
+export function getAutoBackups() {
+  return listAutoBackups(localStorage).map((b) => {
+    let counts = null;
+    try {
+      const d = JSON.parse(readAutoBackup(localStorage, b.key));
+      counts = { entries: d.entries?.length ?? 0, bodyLogs: d.bodyLogs?.length ?? 0, events: d.events?.length ?? 0 };
+    } catch {
+      // 読めないものは件数なしで出す(戻すときに検証で止まる)
+    }
+    return { ...b, counts };
+  });
+}
+
+export const readAutoBackupText = (key) => readAutoBackup(localStorage, key);
+
+// 今のデータを自動バックアップに1つ足す(復元の前など)
+export const autoBackupNow = (reason) => saveAutoBackup(localStorage, JSON.stringify(state), { reason });
 
 export const getState = () => state;
 export const getExercise = (id) => state.exercises.find((x) => x.id === id);

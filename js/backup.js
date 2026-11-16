@@ -3,11 +3,11 @@ import { BODY_PARTS } from './store.js';
 import { cleanMuscles } from './muscles.js';
 import { CUSTOM_FIELDS, EQUIPMENT } from './guides.js';
 import { GOALS, TIMES_OF_DAY, SLOT_KEYS } from './program.js';
+import { SCHEMA_VERSION, migrate } from './migrate.js';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const ID = /^[A-Za-z0-9_-]{1,40}$/;
 const LOAD_TYPES = ['weighted', 'bodyweight', 'timed'];
-const SCHEMA_VERSION = 1;
 const MAX_TEXT = 4000;
 const TIME = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const END_TIME = /^(?:(?:[01]\d|2[0-3]):[0-5]\d|24:00)$/;
@@ -225,7 +225,9 @@ function dayRange(s) {
 }
 
 // 成功なら { state }、失敗なら { error }(利用者に見せる文)。
-export function parseBackup(text, today) {
+// keepLastBackupAt: 自動バックアップから戻すとき。最終バックアップの日付は、そのデータに入っていたものを使う
+// (自動バックアップは書き出しではないので、「最終バックアップ」を今日にしない)。
+export function parseBackup(text, today, { keepLastBackupAt = false } = {}) {
   let raw;
   try {
     raw = JSON.parse(text);
@@ -238,6 +240,7 @@ export function parseBackup(text, today) {
     }
     if (!int(raw.schemaVersion, 1)) fail('バックアップの形式を判別できません');
     if (raw.schemaVersion > SCHEMA_VERSION) fail('新しいバージョンで作られたバックアップです。アプリを更新してください');
+    raw = migrate(raw).data; // 古い版のバックアップは、最新の形に変換してから確かめる
 
     const exIds = new Set();
     const exercises = raw.exercises.map((x) => exercise(x, exIds));
@@ -269,7 +272,8 @@ export function parseBackup(text, today) {
           timerPresets: [60, 90, 120],
           timerCustomSec: int(s.timerCustomSec, 5) && s.timerCustomSec <= 3600 ? s.timerCustomSec : null,
           weightStepKg: num(s.weightStepKg) && s.weightStepKg > 0 ? s.weightStepKg : 2.5,
-          lastBackupAt: today, // 読み込んだファイル自体が最新のバックアップ
+          // 読み込んだファイル自体が最新のバックアップ
+          lastBackupAt: keepLastBackupAt ? (typeof s.lastBackupAt === 'string' && DATE.test(s.lastBackupAt) ? s.lastBackupAt : null) : today,
           timeStepMin: [60, 30, 15].includes(s.timeStepMin) ? s.timeStepMin : 60,
           ...dayRange(s),
           // 持っている器具(絞り込みを使っていなければ null)
