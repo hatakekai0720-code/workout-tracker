@@ -8,7 +8,7 @@ import { BODY_PARTS } from '../js/store.js';
 const catalog = JSON.parse(readFileSync(new URL('../data/exercises.json', import.meta.url), 'utf8'));
 const text = (v) => typeof v === 'string' && v.trim().length > 0;
 
-// 器具カテゴリごとの、そろっているべき種目(追加した回から順に埋めていく)
+// 器具カテゴリごとの、そろっているべき種目
 const EXPECTED = {
   bodyweight: ['腕立て伏せ', 'ワイドプッシュアップ', 'ダイヤモンドプッシュアップ', 'パイクプッシュアップ', 'ベンチディップス', '自重スクワット',
     'ブルガリアンスクワット', 'ランジ', 'ヒップリフト', 'カーフレイズ', 'プランク', 'サイドプランク', 'クランチ', 'レッグレイズ', 'バーピー'],
@@ -16,6 +16,7 @@ const EXPECTED = {
   dumbbell: ['ダンベルスクワット', 'ゴブレットスクワット', 'ダンベルルーマニアンデッドリフト', 'ダンベルランジ', 'ダンベルベンチプレス', 'ダンベルフライ',
     'ワンハンドロウ', 'ダンベルショルダープレス', 'サイドレイズ', 'リアレイズ', 'アームカール', 'ハンマーカール', 'フレンチプレス', 'キックバック', 'ダンベルシュラッグ'],
   barbell: ['バーベルスクワット', 'ベンチプレス', 'デッドリフト', 'ベントオーバーロウ', 'オーバーヘッドプレス', 'ルーマニアンデッドリフト', 'ヒップスラスト'],
+  machine: ['ラットプルダウン', 'ケーブルシーテッドロウ', 'チェストプレス', 'ペックフライ', 'レッグプレス', 'レッグエクステンション', 'レッグカール', 'ケーブルプッシュダウン'],
   run: ['ランニング'],
 };
 
@@ -47,8 +48,8 @@ for (const [slug, g] of Object.entries(catalog)) {
     for (const a of g.alternatives) {
       assert.ok(text(a.name));
       assert.notEqual(a.id, slug);
-      // カタログにある種目を指しているなら、名前が一致していること(まだ追加していない種目は名前だけで表示する)
-      if (a.id && catalog[a.id]) assert.equal(a.name, catalog[a.id].name);
+      // id つきの代替種目は、必ずカタログにあって名前も一致する(id なしは一覧にない種目で、名前だけ表示する)
+      if (a.id) assert.equal(a.name, catalog[a.id]?.name, `代わりの種目 ${a.id} がカタログにない、または名前が違う`);
     }
     // 解説の本文
     assert.ok(g.muscles.main.length >= 1);
@@ -66,6 +67,13 @@ for (const [slug, g] of Object.entries(catalog)) {
     assert.ok(text(g.dosage.beginner) && text(g.dosage.intermediate) && text(g.dosage.rest));
   });
 }
+
+test('筋トレ50種目とランニングがそろっている', () => {
+  const all = Object.values(catalog);
+  assert.equal(all.filter((g) => g.kind === 'strength').length, 50);
+  assert.equal(all.filter((g) => g.kind === 'run').length, 1);
+  assert.deepEqual(Object.keys(EXPECTED), Object.keys(CATEGORIES)); // すべてのカテゴリを確かめている
+});
 
 test('種目名が重複していない', () => {
   const names = Object.values(catalog).map((g) => g.name);
