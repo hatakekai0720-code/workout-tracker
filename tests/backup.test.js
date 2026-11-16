@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseBackup } from '../js/backup.js';
+import { parseBackup } from '../js/data/backup.js';
 
 const valid = () => ({
   app: 'workout-tracker',

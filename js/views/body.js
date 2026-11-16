@@ -1,8 +1,9 @@
 // プロフィールと体の記録(体重・体脂肪率)、体重グラフ。
-import { getState, setProfile, getBodyLog, upsertBodyLog, deleteBodyLog } from '../store.js';
-import { toDateStr, formatShortDate, formatDateJa, dayNumber, dayNumberToDateStr, movingAverage, bmi } from '../calc.js';
-import { PERIODS, dateTicks } from '../charts.js';
-import { esc } from '../util.js';
+import { getState, setProfile, getBodyLog, upsertBodyLog, deleteBodyLog } from '../data/store.js';
+import { toDateStr, formatShortDate, formatDateJa, dayNumber, dayNumberToDateStr } from '../logic/dates.js';
+import { movingAverage, bmi } from '../logic/training.js';
+import { PERIODS, dateTicks } from '../ui/charts.js';
+import { esc } from '../ui/util.js';
 
 const LIST_STEP = 14;
 

@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { placeProgram, overlapWarning } from '../js/placement.js';
-import { toMin } from '../js/schedule.js';
-import { dayNumber } from '../js/calc.js';
+import { placeProgram, overlapWarning } from '../js/logic/placement.js';
+import { toMin } from '../js/logic/schedule.js';
+import { dayNumber } from '../js/logic/dates.js';
 
 const settings = { dayStart: '06:00', dayEnd: '23:00', timeStepMin: 60 };
 const partsOf = new Map([['sq', 'legs'], ['bench', 'chest'], ['row', 'back'], ['plank', 'core'], ['run', undefined]]);

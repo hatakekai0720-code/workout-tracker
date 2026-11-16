@@ -2,7 +2,7 @@
 // カタログの種目は、種目マスタ(保存データ)に guideId で結びつく。
 // 自分で追加した種目は guideId を持たず、customGuide(下の項目ごとの自由記述)に解説を書く。
 import { getState, setExercises } from './store.js';
-import { cleanMuscles } from './muscles.js';
+import { cleanMuscles } from '../logic/muscles.js';
 
 export const CATEGORIES = {
   bodyweight: '自重',

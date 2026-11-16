@@ -10,7 +10,7 @@ https://hatakekai0720-code.github.io/workout-tracker/
 - **ビルドなし**: 素の HTML / CSS / JavaScript(ES Modules)。npm の依存パッケージは使わない(`package.json` はテストとサーバー起動のスクリプトだけ)。
 - **データは端末内だけ**: `localStorage` の `workoutTracker.data` に JSON 1 個。サーバーはない。
 - **既存データを壊さない**: 利用者は公開版で実際に記録している。保存データの形を変えるときは、できるだけ項目を「任意」で足す形にし、古いデータとバックアップがそのまま読めるようにする(このときは `schemaVersion` を上げない)。
-  - 足すだけでは済まない変更(名前や形を変える)は、`js/migrate.js` の `SCHEMA_VERSION` を上げ、`MIGRATIONS` に変換を1つ足し、`tests/migrate.test.js` にテストを足す。起動時とバックアップ取り込み時に自動で変換され、変換の前に自動バックアップが取られる。今は版1(変換はまだない)。
+  - 足すだけでは済まない変更(名前や形を変える)は、`js/data/migrate.js` の `SCHEMA_VERSION` を上げ、`MIGRATIONS` に変換を1つ足し、`tests/migrate.test.js` にテストを足す。起動時とバックアップ取り込み時に自動で変換され、変換の前に自動バックアップが取られる。今は版1(変換はまだない)。
 - **計算で出せる値は保存しない**(ペース、1RM、PR、継続日数、移動平均など)。
 - **計算は DOM に触れないモジュールに分け、テストを付ける**。画面(`js/views/`)は薄く保つ。
 - **見た目**: Windows XP 風(青いタイトルバーのウィンドウ、ベージュの地、タスクバー風の下タブ)。フォントは Noto Sans JP(`vendor/` に同梱)。色は `css/style.css` の CSS 変数で、ダークモードは `:root[data-theme="dark"]`。
@@ -24,46 +24,55 @@ https://hatakekai0720-code.github.io/workout-tracker/
 
 ## ファイルを足したとき(必須)
 
-`js/`・`css/`・`data/`・`icons/` にファイルを足したら、`sw.js` の `PRECACHE` に追加し、`VERSION` を 1 つ上げる。`npm test` が過不足を検出する。
+`js/`(どの下位フォルダでも)・`css/`・`data/`・`icons/` にファイルを足したら、`sw.js` の `PRECACHE` に追加し、`VERSION` を 1 つ上げる。`npm test` が過不足を検出する。
 
 ## 構成
 
 ```
 index.html            画面の枠、下タブ、ダイアログ、importmap
 sw.js                 Service Worker(本体はネットワーク優先で HTTP キャッシュを通さない、フォントと CDN はキャッシュ優先)。
-                      VERSION は js/util.js の APP_VERSION とそろえる(設定画面に表示。テストで確認)。新しい版に切り替わると app.js が1回読み込み直す
+                      VERSION は js/ui/util.js の APP_VERSION とそろえる(設定画面に表示。テストで確認)。新しい版に切り替わると app.js が1回読み込み直す
 data/exercises.json   種目カタログ(筋トレ50種目+ランニング)。解説・器具・難易度・効く筋肉など
 css/style.css         すべてのスタイル
 js/
   app.js              起動、タブ切替
-  store.js            保存データの読み書き(state はここだけが持つ)。起動時に自動バックアップと変換を行い、容量不足なら古い自動バックアップから消す
-  migrate.js          保存データの版と、古い版からの自動変換
-  autobackup.js       自動バックアップ(1日1回、その日に初めて開いたとき。直近3つ。キーは workoutTracker.autoBackup.<時刻>.<理由>)。設定画面から戻せる
-  backup.js           バックアップ JSON の検証(受け取った値を作り直す。古い形も読む)
-  calc.js             日付・ペース・1RM・週の集計など
-  insights.js         PR・継続日数・今週のまとめ
-  suggest.js          ホームの「次のメニュー提案」(ルールベース)
-  guides.js           種目カタログの読み込みと、種目マスタとの統合(guideId で結びつく)
-  muscles.js          筋肉の一覧(16種)
-  musclemap.js        筋肉マップの集計(今週のセット数、回復の状態)
-  schedule.js         予定(バイト・学校)の繰り返し展開、編集範囲、重なり、振り替え候補
-  program.js          自動メニュー作成(ルールで組み立てる)
-  placement.js        プログラムを空き時間に自動配置
-  charts.js theme.js timer.js util.js
+  data/               保存まわり(読み書き・検証・バックアップ)
+    store.js          保存データの読み書き(state はここだけが持つ)。起動時に自動バックアップと変換を行い、容量不足なら古い自動バックアップから消す
+    migrate.js        保存データの版と、古い版からの自動変換
+    autobackup.js     自動バックアップ(1日1回、その日に初めて開いたとき。直近3つ。キーは workoutTracker.autoBackup.<時刻>.<理由>)。設定画面から戻せる
+    backup.js         バックアップ JSON の検証(受け取った値を作り直す。古い形も読む)
+    guides.js         種目カタログの読み込みと、種目マスタとの統合(guideId で結びつく)
+  logic/              計算・ルール(DOM にも保存先にも触れない。テストの対象)
+    dates.js          日付(通し日数、週の月曜、日本語の表示)
+    training.js       ペース・1RM・記録の要約・グラフ用の集計・週ごとの集計
+    insights.js       PR・継続日数・今週のまとめ
+    suggest.js        ホームの「次のメニュー提案」(ルールベース)
+    muscles.js        筋肉の一覧(16種)
+    musclemap.js      筋肉マップの集計(今週のセット数、回復の状態)
+    schedule.js       予定(バイト・学校)の繰り返し展開、編集範囲、重なり、空き時間、振り替え候補
+    program.js        自動メニュー作成(ルールで組み立てる)
+    placement.js      プログラムを空き時間に自動配置
+  ui/                 画面から使う道具(DOM に触れる)
+    charts.js theme.js timer.js util.js
   mannequin/          筋肉マップのマネキン(楕円体だけで組む。1つの筋肉を筋頭ごとの楕円体に分ける。3D は Three.js で、筋線維のすじ模様・後ろからの光・足もとの影。2D は SVG)
                       3D は2本指ドラッグ/▲▼ボタンで上下に移動できる(左右・前後には動かない。向きのボタンで全身に戻る)
   views/              各画面(home, calendar, exercises, stats, body, settings と、各ダイアログ)
+    program.js        自動メニュー作成ダイアログの入口(画面の切り替えとボタンの受け付け)
+    program/          その画面ごとの中身: form(入力)・preview(確認)・place(日程に入れる)・state(共有の状態 ui)
 tests/                各モジュールのテスト(memory-storage.js は localStorage の代わり)
 ```
+
+置き場所の決まり: 計算やルールは `logic/`(DOM に触れない・テストを付ける)、保存・検証・バックアップは `data/`、画面は `views/`。
+`logic/` から `views/` や `ui/` を読み込まない(読み込みは 画面 → ui / logic / data の向きだけ)。
 
 ## 保存データの形(主なもの)
 
 - `exercises`: 種目マスタ。`id`、`name`、`kind`(strength/run)、`bodyPart`、`loadType`(weighted/bodyweight/timed)、`archived`。任意で `guideId`(カタログとの結びつき)、`muscles`、`note`、`customGuide`。
-  - 最初の版の 7 種目(`ex_squat` など)は id を変えずにカタログへ結びつけている(`guides.js` の `LEGACY`)。利用者の「スクワット」は自重に変えて使われているので `bw_squat` に結びつく。
+  - 最初の版の 7 種目(`ex_squat` など)は id を変えずにカタログへ結びつけている(`js/data/guides.js` の `LEGACY`)。利用者の「スクワット」は自重に変えて使われているので `bw_squat` に結びつく。
   - カタログの種目は起動時に足される。削除はできず、非表示(`archived`)にする。
 - `entries`: トレーニングの予定と実績。`date`、`exerciseId`、`status`(planned/done)、`plan`、`actual`、`memo`。任意で `time`、`durationMin`、`rpe`、プログラム由来なら `programId`・`sessionKey`(1回ぶんの種目で共通)・`sessionLabel`。
 - `bodyLogs`、`profile`、`settings`(テーマ、タイマー、`ownedEquipment`、`timeStepMin`、`dayStart`/`dayEnd` など)。
-- `events`(予定)・`eventTemplates`・`terms`(学期): 形は `js/schedule.js` の冒頭のコメント。
+- `events`(予定)・`eventTemplates`・`terms`(学期): 形は `js/logic/schedule.js` の冒頭のコメント。
 - `program`: 自動メニュー作成で保存したプログラム(1つだけ)。`config`、`templates`、`schedule`。
 
 ## 決めてきたルール(変える前に利用者に確認する)

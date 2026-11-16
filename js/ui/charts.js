@@ -1,5 +1,5 @@
 // Chart.js の共通設定。色は CSS 変数から読むのでライト/ダークに追従する。
-import { toDateStr, dayNumber, dayNumberToDateStr, formatShortDate, formatDateJa } from './calc.js';
+import { toDateStr, dayNumber, dayNumberToDateStr, formatShortDate, formatDateJa } from '../logic/dates.js';
 
 export const PERIODS = [
   { key: '1m', label: '1ヶ月', days: 30 },

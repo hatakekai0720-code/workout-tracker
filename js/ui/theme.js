@@ -1,6 +1,6 @@
 // テーマ(端末に合わせる / ライト / ダーク)を <html data-theme> に反映する。
 // 起動直後のちらつきを防ぐため、index.html の先頭にも同じ判定の短いスクリプトがある。
-import { getState } from './store.js';
+import { getState } from '../data/store.js';
 
 const media = window.matchMedia('(prefers-color-scheme: dark)');
 let onChange = () => {};

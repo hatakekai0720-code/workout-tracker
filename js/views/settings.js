@@ -13,15 +13,15 @@ import {
   readAutoBackupText,
   autoBackupNow,
   BODY_PARTS,
-} from '../store.js';
-import { BACKUP_REASONS, AUTO_BACKUP_MAX } from '../autobackup.js';
-import { toDateStr, formatDateJa } from '../calc.js';
-import { parseBackup } from '../backup.js';
-import { applyTheme } from '../theme.js';
-import { musclesOf, syncCatalog, guideFor, isAvailable, ownedEquipment, CATEGORIES, EQUIPMENT } from '../guides.js';
-import { MUSCLES, MUSCLE_KEYS, cleanMuscles } from '../muscles.js';
-import { EVENT_KINDS, timeOptions } from '../schedule.js';
-import { esc, toast, APP_VERSION } from '../util.js';
+} from '../data/store.js';
+import { BACKUP_REASONS, AUTO_BACKUP_MAX } from '../data/autobackup.js';
+import { toDateStr, formatDateJa } from '../logic/dates.js';
+import { parseBackup } from '../data/backup.js';
+import { applyTheme } from '../ui/theme.js';
+import { musclesOf, syncCatalog, guideFor, isAvailable, ownedEquipment, CATEGORIES, EQUIPMENT } from '../data/guides.js';
+import { MUSCLES, MUSCLE_KEYS, cleanMuscles } from '../logic/muscles.js';
+import { EVENT_KINDS, timeOptions } from '../logic/schedule.js';
+import { esc, toast, APP_VERSION } from '../ui/util.js';
 
 const THEMES = [
   { key: 'auto', label: '端末に合わせる' },

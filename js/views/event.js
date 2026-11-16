@@ -1,8 +1,8 @@
 // 予定(バイト・学校など)の登録・編集ダイアログ。
-import { getState, setEvents, saveTemplate, makeId } from '../store.js';
-import { formatDateJa, addDays } from '../calc.js';
-import { EVENT_KINDS, REPEAT_FREQS, WEEKDAYS, weekdayOf, timeOptions, toMin, fromMin, editEvent, deleteEvent } from '../schedule.js';
-import { esc, toast } from '../util.js';
+import { getState, setEvents, saveTemplate, makeId } from '../data/store.js';
+import { formatDateJa, addDays } from '../logic/dates.js';
+import { EVENT_KINDS, REPEAT_FREQS, WEEKDAYS, weekdayOf, timeOptions, toMin, fromMin, editEvent, deleteEvent } from '../logic/schedule.js';
+import { esc, toast } from '../ui/util.js';
 
 let dlg = null;
 let cur = null; // { model, eventId, occurrenceDate, onChange, asking: null | 'save' | 'delete', error }

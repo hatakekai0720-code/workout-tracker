@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { weeklyMuscleSets, heatColor, exercisesForMuscle, bestView, HEAT_LEGEND, recoveryStatus } from '../js/musclemap.js';
+import { weeklyMuscleSets, heatColor, exercisesForMuscle, bestView, HEAT_LEGEND, recoveryStatus } from '../js/logic/musclemap.js';
 
 const EX = [
   { id: 'push', kind: 'strength', archived: false, m: { main: ['chest', 'triceps'], sub: ['deltFront'] } },

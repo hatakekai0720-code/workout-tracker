@@ -1,5 +1,6 @@
 // 自己ベスト(PR)・継続日数・今週のまとめ。すべて記録から毎回計算する(保存しない)。
-import { epley1RM, paceSecPerKm, formatPace, weekStart, addDays, weightOn } from './calc.js';
+import { weekStart, addDays } from './dates.js';
+import { epley1RM, paceSecPerKm, formatPace, weightOn } from './training.js';
 
 export const PR_LABELS = {
   topWeight: '最大重量',

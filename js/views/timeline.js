@@ -1,6 +1,6 @@
 // 週・日のタイムライン(縦軸が時間)。予定とトレーニングを時間帯のブロックで並べる。
-import { toMin, fromMin, weekdayOf, DEFAULT_TRAINING_MIN, EVENT_KINDS, WEEKDAYS } from '../schedule.js';
-import { esc } from '../util.js';
+import { toMin, fromMin, weekdayOf, DEFAULT_TRAINING_MIN, EVENT_KINDS, WEEKDAYS } from '../logic/schedule.js';
+import { esc } from '../ui/util.js';
 
 export const HOUR_PX = 44; // 1時間の高さ
 const MIN_HANDLE_PX = 34; // これより低いブロックには、下の伸縮つまみだけ付ける

@@ -1,19 +1,13 @@
 // メニューの登録・編集フォーム(予定の入力と、実施済みにしたときの実績入力)。
-import { getState, getExercise, getEntry, upsertEntry, deleteEntry } from '../store.js';
-import {
-  findPrevious,
-  paceSecPerKm,
-  formatPace,
-  formatDateJa,
-  formatShortDate,
-  describeActual,
-} from '../calc.js';
-import { computePRs, PR_LABELS } from '../insights.js';
-import { timerHtml, refreshTimers } from '../timer.js';
-import { groupByCategory, isAvailable } from '../guides.js';
-import { timeOptions } from '../schedule.js';
+import { getState, getExercise, getEntry, upsertEntry, deleteEntry } from '../data/store.js';
+import { formatDateJa, formatShortDate } from '../logic/dates.js';
+import { findPrevious, paceSecPerKm, formatPace, describeActual } from '../logic/training.js';
+import { computePRs, PR_LABELS } from '../logic/insights.js';
+import { timerHtml, refreshTimers } from '../ui/timer.js';
+import { groupByCategory, isAvailable } from '../data/guides.js';
+import { timeOptions } from '../logic/schedule.js';
 import { openGuide } from './guide.js';
-import { esc, toast } from '../util.js';
+import { esc, toast } from '../ui/util.js';
 
 const MAX_SETS = 20;
 

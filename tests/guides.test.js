@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { MUSCLES, cleanMuscles } from '../js/muscles.js';
-import { mergeCatalog, CATEGORIES, EQUIPMENT, PLACES, LEVELS } from '../js/guides.js';
-import { BODY_PARTS } from '../js/store.js';
+import { MUSCLES, cleanMuscles } from '../js/logic/muscles.js';
+import { mergeCatalog, CATEGORIES, EQUIPMENT, PLACES, LEVELS } from '../js/data/guides.js';
+import { BODY_PARTS } from '../js/data/store.js';
 
 const catalog = JSON.parse(readFileSync(new URL('../data/exercises.json', import.meta.url), 'utf8'));
 const text = (v) => typeof v === 'string' && v.trim().length > 0;

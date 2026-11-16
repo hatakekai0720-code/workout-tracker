@@ -1,14 +1,14 @@
-import { initStore } from './store.js';
+import { initStore } from './data/store.js';
 import { mountHome } from './views/home.js';
 import { mountCalendar } from './views/calendar.js';
 import { mountBody } from './views/body.js';
 import { mountStats } from './views/stats.js';
 import { mountExercises } from './views/exercises.js';
-import { loadGuides, syncCatalog } from './guides.js';
+import { loadGuides, syncCatalog } from './data/guides.js';
 import { mountSettings } from './views/settings.js';
-import { initTheme } from './theme.js';
-import { initTimer, refreshTimers } from './timer.js';
-import { toast } from './util.js';
+import { initTheme } from './ui/theme.js';
+import { initTimer, refreshTimers } from './ui/timer.js';
+import { toast } from './ui/util.js';
 
 const loaded = initStore();
 await loadGuides();

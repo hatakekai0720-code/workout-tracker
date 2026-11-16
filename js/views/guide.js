@@ -1,12 +1,13 @@
 // 種目の解説ページ(ダイアログ)。筋肉マップ・種目一覧・記録画面から開く。
-import { getState, getExercise, saveExercise, BODY_PARTS } from '../store.js';
-import { findPrevious, formatShortDate, describeActual } from '../calc.js';
-import { computePRs, formatPR, PR_LABELS } from '../insights.js';
-import { guideFor, musclesOf, exerciseForGuide, CUSTOM_FIELDS, CATEGORIES, EQUIPMENT, PLACES, LEVELS } from '../guides.js';
-import { MUSCLES } from '../muscles.js';
+import { getState, getExercise, saveExercise, BODY_PARTS } from '../data/store.js';
+import { formatShortDate } from '../logic/dates.js';
+import { findPrevious, describeActual } from '../logic/training.js';
+import { computePRs, formatPR, PR_LABELS } from '../logic/insights.js';
+import { guideFor, musclesOf, exerciseForGuide, CUSTOM_FIELDS, CATEGORIES, EQUIPMENT, PLACES, LEVELS } from '../data/guides.js';
+import { MUSCLES } from '../logic/muscles.js';
 import { createMannequin } from '../mannequin/index.js';
-import { bestView } from '../musclemap.js';
-import { esc, toast } from '../util.js';
+import { bestView } from '../logic/musclemap.js';
+import { esc, toast } from '../ui/util.js';
 
 const FAR_FUTURE = '9999-12-31';
 

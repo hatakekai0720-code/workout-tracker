@@ -4,7 +4,8 @@
 //   { goal, focus: [部位], avoid: [部位], weeks, perWeek, minutes, equipment: [器具], gymSessions,
 //     level, excluded: [種目id], run: { perWeek, km }, timeOfDay, seed }
 // 文脈 ctx: { exercises: 種目マスタ, guideFor: 種目 → カタログの情報, entries: 記録, weightStepKg, today }
-import { epley1RM, dayNumber, weekStart } from './calc.js';
+import { dayNumber, weekStart } from './dates.js';
+import { epley1RM } from './training.js';
 
 export const GOALS = { hypertrophy: '筋肥大', strength: '筋力アップ', fatloss: '減量', fitness: '体力づくり' };
 export const TIMES_OF_DAY = { morning: '朝', noon: '昼', night: '夜', any: 'こだわらない' };

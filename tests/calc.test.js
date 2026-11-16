@@ -1,16 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { toDateStr, monthGrid, formatDateJa } from '../js/logic/dates.js';
 import {
-  toDateStr,
-  monthGrid,
   paceSecPerKm,
   formatPace,
   formatDuration,
   findPrevious,
   describePlan,
   describeActual,
-  formatDateJa,
-} from '../js/calc.js';
+} from '../js/logic/training.js';
 
 test('toDateStr はローカル日付をゼロ埋めする', () => {
   assert.equal(toDateStr(new Date(2026, 0, 5)), '2026-01-05');
@@ -95,7 +93,8 @@ test('describeActual', () => {
   assert.equal(describeActual(run, { distanceKm: 5.2, durationSec: 1872 }), '5.2km ・ 31:12 ・ 6:00/km');
 });
 
-import { dayNumber, dayNumberToDateStr, addDays, movingAverage, bmi } from '../js/calc.js';
+import { dayNumber, dayNumberToDateStr, addDays } from '../js/logic/dates.js';
+import { movingAverage, bmi } from '../js/logic/training.js';
 
 test('日付と通し日数の変換', () => {
   assert.equal(dayNumber('2026-11-16') - dayNumber('2026-11-09'), 7);
@@ -122,16 +121,15 @@ test('bmi', () => {
   assert.equal(bmi(68, null), null);
 });
 
+import { weekStart, weekRange } from '../js/logic/dates.js';
 import {
   epley1RM,
-  weekStart,
-  weekRange,
   weightOn,
   strengthSeries,
   runSeries,
   weeklyRunDistance,
   weeklySetsByPart,
-} from '../js/calc.js';
+} from '../js/logic/training.js';
 
 test('epley1RM', () => {
   assert.equal(epley1RM(20, 1), 20);
