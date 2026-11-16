@@ -79,6 +79,9 @@ export function mountSettings(root) {
           <input type="number" inputmode="numeric" step="1" min="${MIN_TIMER}" max="${MAX_TIMER}"
             data-field="timerCustomSec" value="${settings.timerCustomSec ?? ''}"></label>
         <p class="error" role="alert" data-timer-error hidden></p>
+        <label class="field"><span>トレーニング中モードの休憩(プログラムで決めていない種目)</span><select data-field="restSec">
+          ${[30, 45, 60, 90, 120, 150, 180].map((n) => `<option value="${n}" ${n === (settings.restSec || 90) ? 'selected' : ''}>${n}秒</option>`).join('')}
+        </select></label>
       </section>
 
       <section class="card">
@@ -473,6 +476,9 @@ export function mountSettings(root) {
       const file = t.files[0];
       t.value = '';
       if (file) importBackup(file);
+    } else if (t.dataset.field === 'restSec') {
+      setSettings({ restSec: Number(t.value) });
+      toast(`休憩を${t.value}秒にしました`);
     } else if (t.dataset.field === 'timerCustomSec') {
       const errorEl = root.querySelector('[data-timer-error]');
       const raw = t.value.trim();

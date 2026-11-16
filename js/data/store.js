@@ -27,7 +27,7 @@ function defaultState() {
   return {
     schemaVersion: SCHEMA_VERSION,
     profile: { heightCm: null, targetWeightKg: null },
-    settings: { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: null, ownedEquipment: null, timeStepMin: 60, dayStart: '06:00', dayEnd: '23:00' },
+    settings: { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: null, ownedEquipment: null, timeStepMin: 60, dayStart: '06:00', dayEnd: '23:00', restSec: 90 },
     exercises: [
       ex('ex_squat', 'ダンベルスクワット', 'strength', 'legs', 'weighted'),
       ex('ex_row', 'ロウ', 'strength', 'back', 'weighted'),
@@ -252,6 +252,29 @@ export function removeProgramEntries(programId) {
   state.entries = state.entries.filter((e) => !(e.programId === programId && e.status === 'planned'));
   save();
   return before - state.entries.length;
+}
+
+// トレーニング中モードの結果を書き込む(js/logic/workout.js の finishWorkout の saves)。
+// entryId のあるものは更新し、ないもの(途中で入れ替えた種目)は元の予定の日時・プログラムの印を写して足す。
+// 返り値: 書き込んだ記録の id の集合
+export function applyWorkoutSaves(saves) {
+  const ids = new Set();
+  for (const s of saves) {
+    if (s.entryId) {
+      const e = state.entries.find((x) => x.id === s.entryId);
+      if (!e) continue;
+      Object.assign(e, s.patch);
+      ids.add(e.id);
+      continue;
+    }
+    const origin = state.entries.find((x) => x.id === s.originEntryId);
+    const { id, actual, rpe, memo, swappedFrom, doneAt, ...keep } = origin || {};
+    const added = { ...keep, date: origin?.date, memo: '', ...s.patch, exerciseId: s.exerciseId, id: newId() };
+    state.entries.push(added);
+    ids.add(added.id);
+  }
+  save();
+  return ids;
 }
 
 // プログラムの1回ぶん(同じ sessionKey で同じ日の記録)を、まとめて別の日時に動かす

@@ -8,6 +8,8 @@ import { buildSuggestions, defaultTargetDate } from '../logic/suggest.js';
 import { isAvailable } from '../data/guides.js';
 import { openEntryForm } from './entry.js';
 import { openProgram } from './program.js';
+import { startWorkoutFor, resumeWorkout, discardWorkout, pendingWorkout } from './workout.js';
+import { groupToday } from '../logic/workout.js';
 import { focusCalendarDate } from './calendar.js';
 import { toMin, fromMin, DEFAULT_TRAINING_MIN } from '../logic/schedule.js';
 import { GOALS } from '../logic/program.js';
@@ -181,12 +183,41 @@ export function mountHome(root) {
     </section>`;
   }
 
+  // 今日のトレーニング: 予定の回ごとに「開始」ボタン。途中のものがあれば再開を先に出す。
+  function todayHtml(state, today) {
+    const pending = pendingWorkout();
+    if (pending) {
+      return `<section class="card today-workout">
+        <h2>トレーニングの途中です</h2>
+        <p class="prog-summary"><span>${esc(pending.names.slice(0, 4).join('・'))}${pending.names.length > 4 ? ' ほか' : ''}</span><span>${pending.done} / ${pending.total}種目 済み</span></p>
+        <button type="button" class="btn-primary wide first" data-action="wo-resume">▶ 続きから再開</button>
+        <button type="button" class="btn-ghost wide" data-action="wo-discard">途中の記録を破棄</button>
+      </section>`;
+    }
+    const groups = groupToday(state.entries, today);
+    if (!groups.length) return '';
+    return `<section class="card today-workout">
+      <h2>今日のトレーニング</h2>
+      ${groups
+        .map((g, i) => {
+          const names = g.entries.map((e) => getExercise(e.exerciseId)?.name).filter(Boolean);
+          const title = g.label || (g.time ? `${g.time}〜` : '今日の予定');
+          return `<div class="today-group">
+            <p class="prog-summary"><b>${esc(title)}</b><span>${g.time && g.label ? `${g.time}〜 ・ ` : ''}${names.length}種目: ${esc(names.join('・'))}</span></p>
+            <button type="button" class="btn-primary wide wo-start" data-action="wo-start" data-index="${i}">▶ 開始</button>
+          </div>`;
+        })
+        .join('')}
+    </section>`;
+  }
+
   function render() {
     const state = getState();
     const today = toDateStr(new Date());
     root.innerHTML = `
       <header class="page-head"><h1>ホーム</h1><span class="page-date">${formatDateJa(today)}</span></header>
       ${backupHtml(state, today)}
+      ${todayHtml(state, today)}
       ${summaryHtml(state, today)}
       ${programHtml(state)}
       <section class="card"><h2>インターバルタイマー</h2>${timerHtml()}</section>
@@ -202,6 +233,19 @@ export function mountHome(root) {
     if (!t) return;
     const s = current[Number(t.dataset.index)];
     switch (t.dataset.action) {
+      case 'wo-start': {
+        const g = groupToday(getState().entries, toDateStr(new Date()))[Number(t.dataset.index)];
+        if (g) startWorkoutFor(g.entries.map((e) => e.id), { onChange: render });
+        break;
+      }
+      case 'wo-resume':
+        resumeWorkout({ onChange: render });
+        break;
+      case 'wo-discard':
+        if (!confirm('途中のトレーニングを破棄します。終えたセットも保存されません。よろしいですか？')) break;
+        discardWorkout();
+        render();
+        break;
       case 'add':
         upsertEntry(planned(s));
         toast(`${formatDateJa(ui.target)}の予定に追加しました`);

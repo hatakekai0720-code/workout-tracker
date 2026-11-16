@@ -65,10 +65,10 @@ test('壊れた中身は断る', () => {
 
 test('設定の不正な値は既定値に戻す', () => {
   const v = valid();
-  v.settings = { theme: 'pink', timerCustomSec: 2, weightStepKg: 0 };
+  v.settings = { theme: 'pink', timerCustomSec: 2, weightStepKg: 0, restSec: 5000 };
   v.profile = { heightCm: 'tall' };
   const { state } = parse(v);
-  assert.deepEqual(state.settings, { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: '2026-11-15', ownedEquipment: null, timeStepMin: 60, dayStart: '06:00', dayEnd: '23:00' });
+  assert.deepEqual(state.settings, { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: '2026-11-15', ownedEquipment: null, timeStepMin: 60, dayStart: '06:00', dayEnd: '23:00', restSec: 90 });
   assert.deepEqual(state.profile, { heightCm: null, targetWeightKg: null });
 });
 
@@ -197,4 +197,29 @@ test('自動バックアップから戻すときは、最終バックアップ�
   assert.equal(parseBackup(text, '2026-11-15', { keepLastBackupAt: true }).state.settings.lastBackupAt, '2026-01-01');
   const none = { ...valid(), settings: {} };
   assert.equal(parseBackup(JSON.stringify(none), '2026-11-15', { keepLastBackupAt: true }).state.settings.lastBackupAt, null);
+});
+
+test('トレーニング中モードの項目(RIR・休憩・完了時刻・入れ替え前の種目)を復元で残す', () => {
+  const data = valid();
+  data.settings.restSec = 120;
+  data.exercises.push({ id: 'ex_bench', name: 'ベンチ', kind: 'strength', bodyPart: 'chest', loadType: 'weighted', archived: false });
+  data.entries[0] = {
+    ...data.entries[0],
+    plan: { weightKg: 20, reps: 10, sets: 3, restSec: 90 },
+    actual: { sets: [{ weightKg: 20, reps: 10, rir: 2 }, { weightKg: 20, reps: 8, rir: 9 }, { weightKg: 20, reps: 8 }] },
+    doneAt: '2026-11-10T10:00:00.000Z',
+    swappedFrom: 'ex_bench',
+  };
+  const { state } = parse(data);
+  const e = state.entries[0];
+  assert.equal(state.settings.restSec, 120);
+  assert.equal(e.plan.restSec, 90);
+  assert.deepEqual(e.actual.sets, [{ weightKg: 20, reps: 10, rir: 2 }, { weightKg: 20, reps: 8 }, { weightKg: 20, reps: 8 }]); // 範囲外の RIR は捨てる
+  assert.equal(e.doneAt, '2026-11-10T10:00:00.000Z');
+  assert.equal(e.swappedFrom, 'ex_bench');
+  // 古いバックアップ(項目なし)は既定値
+  const old = parse(valid()).state;
+  assert.equal(old.settings.restSec, 90);
+  assert.equal('restSec' in old.entries[0].plan, false);
+  assert.equal('doneAt' in old.entries[0], false);
 });

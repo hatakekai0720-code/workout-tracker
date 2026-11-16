@@ -70,13 +70,16 @@ function entry(e, exById, seen) {
     const p = e.plan;
     if (!isObj(p) || !num(p.weightKg) || !int(p.reps, 1) || !int(p.sets, 1)) bad();
     plan = { weightKg: p.weightKg, reps: p.reps, sets: p.sets };
+    if (int(p.restSec, 1) && p.restSec <= 900) plan.restSec = p.restSec; // 任意: 休憩の秒数(プログラムから)
     if (done) {
       const sets = e.actual?.sets;
       if (!Array.isArray(sets) || !sets.length) bad();
       actual = {
         sets: sets.map((s) => {
           if (!isObj(s) || !num(s.weightKg) || !int(s.reps, 0)) bad();
-          return { weightKg: s.weightKg, reps: s.reps };
+          const set = { weightKg: s.weightKg, reps: s.reps };
+          if (int(s.rir, 0) && s.rir <= 4) set.rir = s.rir; // 任意: あと何回できたか
+          return set;
         }),
       };
     }
@@ -98,6 +101,9 @@ function entry(e, exById, seen) {
   if (typeof e.programId === 'string' && ID.test(e.programId)) out.programId = e.programId;
   if (typeof e.sessionKey === 'string' && /^[A-Za-z0-9_:-]{1,80}$/.test(e.sessionKey)) out.sessionKey = e.sessionKey;
   if (typeof e.sessionLabel === 'string' && e.sessionLabel) out.sessionLabel = e.sessionLabel.slice(0, 30);
+  // トレーニング中モードの印: 完了した時刻、入れ替える前の種目
+  if (typeof e.doneAt === 'string' && !Number.isNaN(Date.parse(e.doneAt))) out.doneAt = e.doneAt.slice(0, 40);
+  if (typeof e.swappedFrom === 'string' && exById.has(e.swappedFrom)) out.swappedFrom = e.swappedFrom;
   return out;
 }
 
@@ -274,6 +280,7 @@ export function parseBackup(text, today, { keepLastBackupAt = false } = {}) {
           weightStepKg: num(s.weightStepKg) && s.weightStepKg > 0 ? s.weightStepKg : 2.5,
           // 読み込んだファイル自体が最新のバックアップ
           lastBackupAt: keepLastBackupAt ? (typeof s.lastBackupAt === 'string' && DATE.test(s.lastBackupAt) ? s.lastBackupAt : null) : today,
+          restSec: int(s.restSec, 10) && s.restSec <= 600 ? s.restSec : 90, // トレーニング中モードの休憩(既定)
           timeStepMin: [60, 30, 15].includes(s.timeStepMin) ? s.timeStepMin : 60,
           ...dayRange(s),
           // 持っている器具(絞り込みを使っていなければ null)

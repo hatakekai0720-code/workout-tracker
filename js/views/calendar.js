@@ -17,6 +17,7 @@ import {
 } from '../logic/schedule.js';
 import { timelineHtml, attachResize, minuteAt } from './timeline.js';
 import { openEntryForm } from './entry.js';
+import { startWorkoutFor } from './workout.js';
 import { openEventForm } from './event.js';
 import { openTermForm } from './term.js';
 import { esc, toast } from '../ui/util.js';
@@ -264,6 +265,7 @@ export function mountCalendar(root) {
         <h2>${formatDateJa(ui.selected)}</h2>
         <h3>トレーニング</h3>
         ${entryList(byDate.get(ui.selected) || [], prByEntry)}
+        ${ui.selected === today && (byDate.get(today) || []).some((e) => e.status === 'planned') ? '<button type="button" class="btn-primary wide" data-action="wo-start">▶ 今日のトレーニングを開始</button>' : ''}
         <button type="button" class="btn-primary wide" data-action="add">＋ メニューを追加</button>
         <h3>予定(学校・バイトなど)</h3>
         ${eventList(expandEvents(events, ui.selected, ui.selected))}
@@ -316,6 +318,11 @@ export function mountCalendar(root) {
       return;
     }
     switch (t.dataset.action) {
+      case 'wo-start': {
+        const today = toDateStr(new Date());
+        startWorkoutFor(getState().entries.filter((e) => e.date === today && e.status === 'planned').map((e) => e.id), { onChange: render });
+        break;
+      }
       case 'prev':
         shift(-1);
         break;

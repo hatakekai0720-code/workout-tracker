@@ -46,7 +46,7 @@ function modelFromEntry(e) {
   };
   if (e.actual) {
     if (ex.kind === 'run') m.actualRun = { distance: str(e.actual.distanceKm), ...splitDur(e.actual.durationSec) };
-    else m.actualSets = e.actual.sets.map((s) => ({ weight: str(s.weightKg), reps: str(s.reps) }));
+    else m.actualSets = e.actual.sets.map((s) => ({ weight: str(s.weightKg), reps: str(s.reps), rir: s.rir ?? null }));
   }
   return m;
 }
@@ -115,6 +115,9 @@ function buildEntry() {
     const sets = num(m.plan.sets);
     if (!isInt(sets) || sets < 1 || sets > MAX_SETS) return { error: `セット数は1〜${MAX_SETS}で入力してください` };
     plan = { weightKg: w, reps, sets };
+    // トレーニング中モードで使う休憩の秒数(プログラムから入れた予定)は、種目を変えなければ残す
+    const orig = session.entryId ? getEntry(session.entryId) : null;
+    if (orig?.plan?.restSec && orig.exerciseId === m.exerciseId) plan.restSec = orig.plan.restSec;
     if (m.done) {
       if (!m.actualSets.length) return { error: '実績のセットを1つ以上入力してください' };
       const out = [];
@@ -123,7 +126,7 @@ function buildEntry() {
         const sr = num(s.reps);
         if (!(sw >= 0)) return { error: `${i + 1}セット目の重量を入力してください` };
         if (!isInt(sr) || sr < 0) return { error: `${i + 1}セット目の${amount}を入力してください` };
-        out.push({ weightKg: sw, reps: sr });
+        out.push(s.rir != null ? { weightKg: sw, reps: sr, rir: s.rir } : { weightKg: sw, reps: sr });
       }
       actual = { sets: out };
     }
