@@ -11,6 +11,7 @@ import {
 import { computePRs, PR_LABELS } from '../insights.js';
 import { timerHtml, refreshTimers } from '../timer.js';
 import { groupByCategory, isAvailable } from '../guides.js';
+import { timeOptions } from '../schedule.js';
 import { openGuide } from './guide.js';
 import { esc, toast } from '../util.js';
 
@@ -44,6 +45,9 @@ function modelFromEntry(e) {
     actualSets: [],
     actualRun: emptyRun(),
     memo: e.memo || '',
+    date: e.date,
+    time: e.time || '',
+    duration: e.durationMin ? String(e.durationMin) : '',
   };
   if (e.actual) {
     if (ex.kind === 'run') m.actualRun = { distance: str(e.actual.distanceKm), ...splitDur(e.actual.durationSec) };
@@ -130,17 +134,25 @@ function buildEntry() {
     }
   }
 
-  return {
-    entry: {
-      id: session.entryId || null,
-      date: session.date,
-      exerciseId: m.exerciseId,
-      status: m.done ? 'done' : 'planned',
-      plan,
-      actual,
-      memo: m.memo.trim(),
-    },
+  if (!m.date) return { error: '日付を入力してください' };
+  // 画面にない項目(プログラムとの結びつきなど)を消さないよう、元の記録を土台にする
+  const entry = {
+    ...(session.entryId ? getEntry(session.entryId) : {}),
+    id: session.entryId || null,
+    date: m.date,
+    exerciseId: m.exerciseId,
+    status: m.done ? 'done' : 'planned',
+    plan,
+    actual,
+    memo: m.memo.trim(),
   };
+  delete entry.time;
+  delete entry.durationMin;
+  if (m.time) {
+    entry.time = m.time;
+    if (m.duration) entry.durationMin = Number(m.duration);
+  }
+  return { entry };
 }
 
 // ---- 描画 ----
@@ -201,6 +213,25 @@ function actualSection(ex, m) {
     </div>`;
 }
 
+// 開始時刻の選択肢。時刻を入れると、週・日のタイムラインに時間帯で表示される。
+function timeChoices(value) {
+  const step = getState().settings.timeStepMin;
+  const list = timeOptions(step, 0, 1440 - step);
+  if (value && !list.includes(value)) list.push(value);
+  list.sort();
+  return `<option value="">未定</option>${list.map((t) => `<option ${t === value ? 'selected' : ''}>${t}</option>`).join('')}`;
+}
+
+function durationChoices(value) {
+  const list = [15, 30, 45, 60, 75, 90, 120];
+  if (value && !list.includes(Number(value))) list.push(Number(value));
+  list.sort((a, b) => a - b);
+  return `<option value="">60分</option>${list
+    .filter((n) => n !== 60 || value === '60')
+    .map((n) => `<option value="${n}" ${String(n) === value ? 'selected' : ''}>${n}分</option>`)
+    .join('')}`;
+}
+
 function render() {
   const m = session.model;
   const ex = getExercise(m.exerciseId);
@@ -231,6 +262,12 @@ function render() {
             ? `<b>前回 ${formatShortDate(prev.date)}</b> ${esc(describeActual(ex, prev.actual))}`
             : '前回の記録はありません'
         }</p>
+
+        <div class="row when">
+          <label class="field"><span>日付</span><input type="date" data-path="date" value="${m.date}"></label>
+          <label class="field"><span>開始時刻</span><select data-path="time">${timeChoices(m.time)}</select></label>
+          <label class="field"><span>所要時間</span><select data-path="duration" ${m.time ? '' : 'disabled'}>${durationChoices(m.duration)}</select></label>
+        </div>
 
         <h3>予定</h3>
         ${planSection(ex, m)}
@@ -288,6 +325,10 @@ function setup() {
       m.actualSets = [];
       m.actualRun = emptyRun();
       if (m.done) copyPlanToActual(m);
+      render();
+    } else if (path === 'date' || path === 'time') {
+      m[path] = ev.target.value;
+      if (path === 'date' && m.date) session.date = m.date; // 「前回の記録」はこの日付より前を探す
       render();
     } else if (path === 'done') {
       m.done = ev.target.checked;
@@ -379,6 +420,9 @@ export function openEntryForm({ date, entryId = null, exerciseId = null, onChang
       actualSets: [],
       actualRun: emptyRun(),
       memo: '',
+      date,
+      time: '',
+      duration: '',
     };
   }
   session = { date, entryId, onChange, model };
