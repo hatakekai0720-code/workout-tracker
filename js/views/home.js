@@ -4,6 +4,7 @@ import { toDateStr, formatDateJa, formatShortDate, describePlan, dayNumber } fro
 import { timerHtml, refreshTimers } from '../timer.js';
 import { computePRs, streak, weekSummary, formatPR, PR_LABELS } from '../insights.js';
 import { buildSuggestions, defaultTargetDate } from '../suggest.js';
+import { isAvailable } from '../guides.js';
 import { openEntryForm } from './entry.js';
 import { esc, toast } from '../util.js';
 
@@ -43,7 +44,7 @@ export function mountHome(root) {
 
   function suggestHtml(state, today) {
     if (!ui.target || ui.target < today) ui.target = defaultTargetDate(state.entries, today);
-    const { items, skippedParts } = buildSuggestions(state, ui.target);
+    const { items, skippedParts } = buildSuggestions(state, ui.target, isAvailable);
     current = items;
     const addable = items.filter((i) => i.plan).length;
     const list = items.length

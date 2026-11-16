@@ -23,7 +23,7 @@ function defaultState() {
   return {
     schemaVersion: SCHEMA_VERSION,
     profile: { heightCm: null, targetWeightKg: null },
-    settings: { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: null },
+    settings: { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: null, ownedEquipment: null },
     exercises: [
       ex('ex_squat', 'ダンベルスクワット', 'strength', 'legs', 'weighted'),
       ex('ex_row', 'ロウ', 'strength', 'back', 'weighted'),
@@ -136,5 +136,11 @@ export function exportJson() {
 // 検証済みのバックアップ(backup.js の parseBackup の結果)で丸ごと置き換える
 export function replaceState(next) {
   state = next;
+  save();
+}
+
+// 種目マスタを丸ごと差し替える(カタログとの統合用)
+export function setExercises(list) {
+  state.exercises = list;
   save();
 }

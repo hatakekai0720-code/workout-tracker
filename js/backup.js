@@ -1,10 +1,13 @@
 // バックアップ JSON の検証。受け取ったものをそのまま信用せず、必要な項目だけ作り直す。
 import { BODY_PARTS } from './store.js';
+import { cleanMuscles } from './muscles.js';
+import { CUSTOM_FIELDS, EQUIPMENT } from './guides.js';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const ID = /^[A-Za-z0-9_-]{1,40}$/;
 const LOAD_TYPES = ['weighted', 'bodyweight', 'timed'];
 const SCHEMA_VERSION = 1;
+const MAX_TEXT = 4000;
 
 class Invalid extends Error {}
 const fail = (msg) => {
@@ -20,6 +23,17 @@ function exercise(x, seen) {
   if (typeof x.name !== 'string' || !x.name.trim() || x.name.length > 40) fail('種目名が正しくありません');
   seen.add(x.id);
   const base = { id: x.id, name: x.name.trim(), archived: x.archived === true };
+  // 任意の項目: 効く筋肉、自分用メモ、自分で書いた解説
+  if (typeof x.guideId === 'string' && ID.test(x.guideId)) base.guideId = x.guideId;
+  if (isObj(x.muscles)) base.muscles = cleanMuscles(x.muscles);
+  if (typeof x.note === 'string' && x.note) base.note = x.note.slice(0, MAX_TEXT);
+  if (isObj(x.customGuide)) {
+    const custom = {};
+    for (const [key] of CUSTOM_FIELDS) {
+      if (typeof x.customGuide[key] === 'string' && x.customGuide[key]) custom[key] = x.customGuide[key].slice(0, MAX_TEXT);
+    }
+    if (Object.keys(custom).length) base.customGuide = custom;
+  }
   if (x.kind === 'run') return { ...base, kind: 'run', bodyPart: null, loadType: null };
   if (x.kind !== 'strength' || !(x.bodyPart in BODY_PARTS) || !LOAD_TYPES.includes(x.loadType)) {
     fail(`種目「${base.name}」の設定が正しくありません`);
@@ -119,6 +133,8 @@ export function parseBackup(text, today) {
           timerCustomSec: int(s.timerCustomSec, 5) && s.timerCustomSec <= 3600 ? s.timerCustomSec : null,
           weightStepKg: num(s.weightStepKg) && s.weightStepKg > 0 ? s.weightStepKg : 2.5,
           lastBackupAt: today, // 読み込んだファイル自体が最新のバックアップ
+          // 持っている器具(絞り込みを使っていなければ null)
+          ownedEquipment: Array.isArray(s.ownedEquipment) ? [...new Set(s.ownedEquipment)].filter((k) => k in EQUIPMENT) : null,
         },
         exercises,
         entries,

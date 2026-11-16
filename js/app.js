@@ -3,16 +3,21 @@ import { mountHome } from './views/home.js';
 import { mountCalendar } from './views/calendar.js';
 import { mountBody } from './views/body.js';
 import { mountStats } from './views/stats.js';
+import { mountExercises } from './views/exercises.js';
+import { loadGuides, syncCatalog } from './guides.js';
 import { mountSettings } from './views/settings.js';
 import { initTheme } from './theme.js';
 import { initTimer, refreshTimers } from './timer.js';
 
 initStore();
+await loadGuides();
+syncCatalog();
 window.Chart.defaults.font.family = "'Noto Sans JP', sans-serif";
 
 const views = {
   home: mountHome(document.getElementById('view-home')),
   calendar: mountCalendar(document.getElementById('view-calendar')),
+  exercises: mountExercises(document.getElementById('view-exercises')),
   stats: mountStats(document.getElementById('view-stats')),
   body: mountBody(document.getElementById('view-body')),
   settings: mountSettings(document.getElementById('view-settings')),
@@ -45,7 +50,10 @@ document.fonts?.ready.then(() => show(location.hash.slice(1)));
 
 // オフラインでも開けるようにする。失敗してもアプリ自体は動く。
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  const register = () => navigator.serviceWorker.register('sw.js').catch(() => {});
+  // このファイルは解説データの読み込みを待つので、ここに来た時点で load が済んでいることがある
+  if (document.readyState === 'complete') register();
+  else window.addEventListener('load', register);
 }
 // 端末の空き容量が減ったときに、記録が自動で消されにくくする
 navigator.storage?.persist?.().catch(() => {});

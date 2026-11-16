@@ -181,3 +181,37 @@ test('weekSummary と runCalories', () => {
   assert.equal(weekSummary(e, EX, [], '2026-11-11').kcal, null);
   assert.equal(runCalories([{ date: '2026-12-01', weightKg: 70 }], '2026-11-09', 5), 350); // 以前の記録がなければ最初の体重
 });
+
+test('buildSuggestions: 種目が多くても、部位ごとに最近やった3種目まで。未経験の部位は1種目だけ', () => {
+  const many = [
+    ...['a', 'b', 'c', 'd', 'e'].map((k) => ({ id: `chest_${k}`, name: k, kind: 'strength', bodyPart: 'chest', loadType: 'bodyweight', archived: false })),
+    ...['a', 'b', 'c'].map((k) => ({ id: `legs_${k}`, name: k, kind: 'strength', bodyPart: 'legs', loadType: 'bodyweight', archived: false })),
+  ];
+  const entries = [
+    lift('2026-11-01', 'chest_a', [0, 10, 3], [10, 10, 10]),
+    lift('2026-11-03', 'chest_c', [0, 10, 3], [10, 10, 10]),
+    lift('2026-11-02', 'chest_d', [0, 10, 3], [10, 10, 10]),
+    lift('2026-10-20', 'chest_e', [0, 10, 3], [10, 10, 10]),
+  ];
+  const s = buildSuggestions({ entries, exercises: many, settings: {} }, '2026-11-10');
+  // 脚は未経験なので最優先で1種目、胸は最近の順に3種目
+  assert.deepEqual(s.items.map((i) => i.exercise.id), ['legs_a', 'chest_c', 'chest_d', 'chest_a']);
+  assert.equal(s.items[0].plan, null);
+});
+
+test('buildSuggestions: 持っている器具でできない種目と、その部位は提案しない', () => {
+  const entries = [
+    lift('2026-11-01', 'sq', [20, 10, 3], [10, 10, 10]),
+    lift('2026-11-02', 'row', [20, 10, 3], [10, 10, 10]),
+    lift('2026-11-02', 'pull', [0, 6, 3], [6, 6, 6]),
+    lift('2026-11-03', 'push', [0, 10, 3], [10, 10, 10]),
+    run('2026-11-03', 5, 1800),
+  ];
+  const state = { entries, exercises: EX, settings: {} };
+  // ダンベルなし: スクワット(脚)とロウが使えない → 脚は候補から消え、背中は懸垂だけ
+  const noDumbbell = (x) => x.id !== 'sq' && x.id !== 'row';
+  const s = buildSuggestions(state, '2026-11-05', noDumbbell);
+  assert.deepEqual(s.items.map((i) => i.exercise.id), ['plank', 'pull', 'run']);
+  // ランもできない設定なら出さない
+  assert.deepEqual(buildSuggestions(state, '2026-11-05', (x) => x.kind !== 'run').items.map((i) => i.exercise.id), ['plank', 'sq']);
+});

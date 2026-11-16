@@ -13,6 +13,8 @@ import {
 import { toDateStr, formatDateJa } from '../calc.js';
 import { parseBackup } from '../backup.js';
 import { applyTheme } from '../theme.js';
+import { musclesOf, syncCatalog, guideFor, isAvailable, ownedEquipment, CATEGORIES, EQUIPMENT } from '../guides.js';
+import { MUSCLES, MUSCLE_KEYS, cleanMuscles } from '../muscles.js';
 import { esc, toast } from '../util.js';
 
 const THEMES = [
@@ -33,7 +35,8 @@ export function mountSettings(root) {
   function exerciseRows() {
     return getState()
       .exercises.map((x) => {
-        const sub = x.kind === 'run' ? 'ランニング' : LOAD_TYPES[x.loadType];
+        const g = guideFor(x);
+        const sub = `${g ? `${CATEGORIES[g.category]} ・ ` : ''}${x.kind === 'run' ? '距離と時間' : LOAD_TYPES[x.loadType]}`;
         const tag = x.bodyPart ? `<span class="tag">${BODY_PARTS[x.bodyPart]}</span>` : '';
         return `<li><button type="button" class="entry ${x.archived ? 'archived' : ''}" data-action="edit-exercise" data-id="${x.id}">
           <span class="entry-main">
@@ -47,7 +50,9 @@ export function mountSettings(root) {
   }
 
   function render() {
-    const { settings, entries, bodyLogs } = getState();
+    const { settings, entries, bodyLogs, exercises } = getState();
+    const owned = ownedEquipment();
+    const active = exercises.filter((x) => !x.archived);
     root.innerHTML = `
       <header class="page-head"><h1>設定</h1></header>
 
@@ -68,6 +73,20 @@ export function mountSettings(root) {
           <input type="number" inputmode="numeric" step="1" min="${MIN_TIMER}" max="${MAX_TIMER}"
             data-field="timerCustomSec" value="${settings.timerCustomSec ?? ''}"></label>
         <p class="error" role="alert" data-timer-error hidden></p>
+      </section>
+
+      <section class="card">
+        <h2>持っている器具</h2>
+        <label class="toggle"><input type="checkbox" data-field="equip-filter" ${owned ? 'checked' : ''}><span>持っている器具で種目を絞り込む</span></label>
+        ${
+          owned
+            ? `<p class="hint">持っている器具をタップして選んでください。選んだ器具でできる種目だけが、記録画面の選択欄と提案に出ます。自重の種目は常に出ます。</p>
+               <div class="chip-picker">${Object.entries(EQUIPMENT)
+                 .map(([k, label]) => `<button type="button" class="chip ${owned.includes(k) ? 'own' : ''}" data-equip="${k}" aria-pressed="${owned.includes(k)}">${owned.includes(k) ? '✓ ' : ''}${label}</button>`)
+                 .join('')}</div>
+               <p class="hint after">今の設定で使える種目: ${active.filter(isAvailable).length} / ${active.length}</p>`
+            : '<p class="hint">オフの間は、すべての種目が表示されます。</p>'
+        }
       </section>
 
       <section class="card">
@@ -138,6 +157,7 @@ export function mountSettings(root) {
     );
     if (!ok) return;
     replaceState(state);
+    syncCatalog(); // 古いバックアップにも、今のカタログの種目を足す
     applyTheme();
     toast('バックアップから復元しました');
     render();
@@ -153,6 +173,7 @@ export function mountSettings(root) {
       Object.entries(map)
         .map(([k, v]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${v}</option>`)
         .join('');
+    const scroll = dlg.querySelector('.sheet-body')?.scrollTop ?? 0;
     dlg.innerHTML = `<form class="sheet" novalidate>
       <header class="sheet-head">
         <button type="button" class="btn-ghost" data-action="close">閉じる</button>
@@ -170,6 +191,13 @@ export function mountSettings(root) {
                <label class="field"><span>記録のしかた</span><select data-ex="loadType" ${lock}>${opts(LOAD_TYPES, x.loadType)}</select></label>`
             : ''
         }
+        <div class="field"><span>効く筋肉(タップで なし → メイン → サブ)</span>
+          <div class="chip-picker">${MUSCLE_KEYS.map((k) => {
+            const state = x.muscles.main.includes(k) ? 'main' : x.muscles.sub.includes(k) ? 'sub' : '';
+            const mark = state === 'main' ? '<small>メイン</small>' : state === 'sub' ? '<small>サブ</small>' : '';
+            return `<button type="button" class="chip ${state}" data-muscle="${k}" aria-pressed="${state !== ''}">${MUSCLES[k]}${mark}</button>`;
+          }).join('')}</div>
+        </div>
         ${used ? '<p class="hint">すでに記録があるため、種類と記録のしかたは変更できません。</p>' : ''}
         <p class="error" role="alert" hidden></p>
         ${
@@ -177,18 +205,19 @@ export function mountSettings(root) {
             ? ''
             : x.archived
               ? '<button type="button" class="btn-ghost wide" data-action="unarchive">もう一度表示する</button>'
-              : used
+              : used || x.guideId
                 ? '<button type="button" class="btn-danger wide" data-action="archive">この種目を非表示にする</button><p class="hint">過去の記録は残り、新しく選べなくなります。</p>'
                 : '<button type="button" class="btn-danger wide" data-action="delete">この種目を削除</button>'
         }
       </div>
     </form>`;
+    dlg.querySelector('.sheet-body').scrollTop = scroll;
   }
 
   function openDialog(id) {
     editing = id
-      ? { ...getExercise(id) }
-      : { id: null, name: '', kind: 'strength', bodyPart: 'chest', loadType: 'weighted', archived: false };
+      ? { ...getExercise(id), muscles: musclesOf(getExercise(id)) }
+      : { id: null, name: '', kind: 'strength', bodyPart: 'chest', loadType: 'weighted', archived: false, muscles: { main: [], sub: [] } };
     renderDialog();
     dlg.showModal();
   }
@@ -219,6 +248,17 @@ export function mountSettings(root) {
   });
 
   dlg.addEventListener('click', (ev) => {
+    const chip = ev.target.closest('[data-muscle]');
+    if (chip) {
+      // なし → メイン → サブ → なし
+      const k = chip.dataset.muscle;
+      const { main, sub } = editing.muscles;
+      if (main.includes(k)) editing.muscles = { main: main.filter((m) => m !== k), sub: [...sub, k] };
+      else if (sub.includes(k)) editing.muscles = { main, sub: sub.filter((m) => m !== k) };
+      else editing.muscles = { main: [...main, k], sub };
+      renderDialog();
+      return;
+    }
     const t = ev.target.closest('[data-action]');
     if (!t) return;
     switch (t.dataset.action) {
@@ -248,13 +288,13 @@ export function mountSettings(root) {
     const name = editing.name.trim();
     if (!name) return showDialogError('種目名を入力してください');
     const run = editing.kind === 'run';
+    // editing は元の種目を写したものなので、メモや自分で書いた解説もそのまま残る
     saveExercise({
-      id: editing.id,
+      ...editing,
       name,
-      kind: editing.kind,
       bodyPart: run ? null : editing.bodyPart || 'chest',
       loadType: run ? null : editing.loadType || 'weighted',
-      archived: editing.archived,
+      muscles: cleanMuscles(editing.muscles),
     });
     closeDialog();
   });
@@ -266,6 +306,16 @@ export function mountSettings(root) {
   // ---- 設定画面の操作 ----
 
   root.addEventListener('click', (ev) => {
+    const equip = ev.target.closest('[data-equip]');
+    if (equip) {
+      const k = equip.dataset.equip;
+      const owned = ownedEquipment() || [];
+      setSettings({ ownedEquipment: owned.includes(k) ? owned.filter((x) => x !== k) : [...owned, k] });
+      const y = window.scrollY;
+      render();
+      window.scrollTo(0, y);
+      return;
+    }
     const t = ev.target.closest('[data-action]');
     if (!t) return;
     switch (t.dataset.action) {
@@ -291,7 +341,11 @@ export function mountSettings(root) {
 
   root.addEventListener('change', (ev) => {
     const t = ev.target;
-    if (t.dataset.field === 'import-file') {
+    if (t.dataset.field === 'equip-filter') {
+      // オンにした直後は何も選んでいない状態(自重だけ)から始める
+      setSettings({ ownedEquipment: t.checked ? [] : null });
+      render();
+    } else if (t.dataset.field === 'import-file') {
       const file = t.files[0];
       t.value = '';
       if (file) importBackup(file);

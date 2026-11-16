@@ -2,9 +2,12 @@
 // - アプリ本体はネットワーク優先(つながれば常に最新、だめならキャッシュ)
 // - フォントは変わらないのでキャッシュ優先(使った分だけ貯まる)
 // PRECACHE を変えたら VERSION を上げる(tests/sw.test.js がファイルの過不足を確かめる)。
-const VERSION = 'v1';
+const VERSION = 'v9';
 const SHELL = `shell-${VERSION}`;
 const FONTS = 'fonts-v1';
+const CDN = 'cdn-v1';
+// 3D マネキン用の Three.js(版を固定)。一度取得したらオフラインでも 3D が出る。
+const CDN_PREFIX = 'https://cdn.jsdelivr.net/npm/three@0.180.0/';
 const NETWORK_TIMEOUT_MS = 3000;
 
 const PRECACHE = [
@@ -12,11 +15,19 @@ const PRECACHE = [
   'index.html',
   'manifest.webmanifest',
   'css/style.css',
+  'data/exercises.json',
   'js/app.js',
   'js/backup.js',
   'js/calc.js',
   'js/charts.js',
+  'js/guides.js',
   'js/insights.js',
+  'js/mannequin/index.js',
+  'js/mannequin/model.js',
+  'js/mannequin/svg-view.js',
+  'js/mannequin/three-view.js',
+  'js/musclemap.js',
+  'js/muscles.js',
   'js/store.js',
   'js/suggest.js',
   'js/theme.js',
@@ -25,6 +36,8 @@ const PRECACHE = [
   'js/views/body.js',
   'js/views/calendar.js',
   'js/views/entry.js',
+  'js/views/exercises.js',
+  'js/views/guide.js',
   'js/views/home.js',
   'js/views/settings.js',
   'js/views/stats.js',
@@ -49,13 +62,13 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== SHELL && k !== FONTS).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== SHELL && k !== FONTS && k !== CDN).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });
 
-async function cacheFirst(request) {
-  const cache = await caches.open(FONTS);
+async function cacheFirst(request, cacheName) {
+  const cache = await caches.open(cacheName);
   const hit = await cache.match(request);
   if (hit) return hit;
   const res = await fetch(request);
@@ -87,6 +100,10 @@ async function networkFirst(request) {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
-  if (request.method !== 'GET' || url.origin !== self.location.origin) return;
-  event.respondWith(url.pathname.includes('/vendor/noto-sans-jp/files/') ? cacheFirst(request) : networkFirst(request));
+  if (request.method !== 'GET') return;
+  if (url.href.startsWith(CDN_PREFIX)) return event.respondWith(cacheFirst(request, CDN));
+  if (url.origin !== self.location.origin) return;
+  event.respondWith(
+    url.pathname.includes('/vendor/noto-sans-jp/files/') ? cacheFirst(request, FONTS) : networkFirst(request),
+  );
 });

@@ -10,6 +10,8 @@ import {
 } from '../calc.js';
 import { computePRs, PR_LABELS } from '../insights.js';
 import { timerHtml, refreshTimers } from '../timer.js';
+import { groupByCategory, isAvailable } from '../guides.js';
+import { openGuide } from './guide.js';
 import { esc, toast } from '../util.js';
 
 const MAX_SETS = 20;
@@ -203,9 +205,12 @@ function render() {
   const m = session.model;
   const ex = getExercise(m.exerciseId);
   const prev = findPrevious(getState().entries, m.exerciseId, session.date);
-  const options = getState()
-    .exercises.filter((x) => !x.archived || x.id === m.exerciseId)
-    .map((x) => `<option value="${x.id}" ${x.id === m.exerciseId ? 'selected' : ''}>${esc(x.name)}</option>`)
+  const options = groupByCategory(getState().exercises.filter((x) => (!x.archived && isAvailable(x)) || x.id === m.exerciseId))
+    .map(
+      (g) => `<optgroup label="${g.label}">${g.items
+        .map((x) => `<option value="${x.id}" ${x.id === m.exerciseId ? 'selected' : ''}>${esc(x.name)}</option>`)
+        .join('')}</optgroup>`,
+    )
     .join('');
   const body = dlg.querySelector('.sheet-body');
   const scroll = body ? body.scrollTop : 0;
@@ -217,7 +222,10 @@ function render() {
         <button type="submit" class="btn-primary">保存</button>
       </header>
       <div class="sheet-body">
-        <label class="field"><span>種目</span><select data-path="exerciseId">${options}</select></label>
+        <div class="row">
+          <label class="field"><span>種目</span><select data-path="exerciseId">${options}</select></label>
+          <button type="button" class="btn-ghost" data-action="guide">解説</button>
+        </div>
         <p class="prev">${
           prev
             ? `<b>前回 ${formatShortDate(prev.date)}</b> ${esc(describeActual(ex, prev.actual))}`
@@ -298,6 +306,9 @@ function setup() {
       case 'close':
         close();
         break;
+      case 'guide':
+        openGuide(m.exerciseId);
+        break;
       case 'add-set': {
         if (m.actualSets.length >= MAX_SETS) break;
         const last = m.actualSets.at(-1) || { weight: m.plan.weight, reps: m.plan.reps };
@@ -358,7 +369,9 @@ export function openEntryForm({ date, entryId = null, exerciseId = null, onChang
   if (entryId) {
     model = modelFromEntry(getEntry(entryId));
   } else {
-    const first = (exerciseId && getExercise(exerciseId)) || getState().exercises.find((x) => !x.archived);
+    const first = (exerciseId && getExercise(exerciseId)) ||
+      getState().exercises.find((x) => !x.archived && isAvailable(x)) ||
+      getState().exercises.find((x) => !x.archived);
     model = {
       exerciseId: first.id,
       done: false,

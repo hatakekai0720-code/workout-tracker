@@ -4,11 +4,25 @@ export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
 
 let toastTimer = null;
 
-// 画面下に短いお知らせを出す
+// 画面下に短いお知らせを出す。
+// popover にして最前面の層に載せるので、ダイアログを開いている間も見える。
 export function toast(message) {
   const el = document.getElementById('toast');
   el.textContent = message;
+  try {
+    if (el.matches(':popover-open')) el.hidePopover();
+    el.showPopover(); // 出し直すと、後から開いたダイアログより手前になる
+  } catch {
+    /* popover 非対応の環境では通常の表示だけ */
+  }
   el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+  toastTimer = setTimeout(() => {
+    el.classList.remove('show');
+    try {
+      el.hidePopover();
+    } catch {
+      /* 同上 */
+    }
+  }, 3000);
 }
