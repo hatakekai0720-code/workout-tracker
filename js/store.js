@@ -191,3 +191,31 @@ export function setProgram(program) {
   state.program = program;
   save();
 }
+
+// 複数の記録をまとめて追加する(プログラムを日程に入れるとき)
+export function addEntries(list) {
+  for (const e of list) state.entries.push({ ...e, id: newId() });
+  save();
+}
+
+// プログラムから登録した記録のうち、まだ実施していない分を消す。消した件数を返す。
+export function removeProgramEntries(programId) {
+  const before = state.entries.length;
+  state.entries = state.entries.filter((e) => !(e.programId === programId && e.status === 'planned'));
+  save();
+  return before - state.entries.length;
+}
+
+// プログラムの1回ぶん(同じ sessionKey で同じ日の記録)を、まとめて別の日時に動かす
+export function moveSession(sessionKey, fromDate, date, time) {
+  for (const e of state.entries) {
+    if (e.sessionKey !== sessionKey || e.date !== fromDate || e.status !== 'planned') continue;
+    e.date = date;
+    if (time) e.time = time;
+    else {
+      delete e.time;
+      delete e.durationMin;
+    }
+  }
+  save();
+}

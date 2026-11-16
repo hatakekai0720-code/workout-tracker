@@ -63,21 +63,34 @@ export function timelineHtml({ dates, today, selected, occurrences, entries, day
         const e = Math.min(toMin(o.end), to);
         if (e > s) blocks.push({ type: 'ev', s, e, o });
       }
+      const sessions = new Map(); // プログラムの1回ぶん(同じ時刻・同じ sessionKey)は1つにまとめる
       for (const en of entries) {
         if (en.date !== d || !en.time) continue;
         const s = Math.max(toMin(en.time), from);
         const e = Math.min(toMin(en.time) + (en.durationMin || DEFAULT_TRAINING_MIN), to);
-        if (e > s) blocks.push({ type: 'tr', s, e, en });
+        if (e <= s) continue;
+        const key = en.sessionKey && `${en.time}|${en.sessionKey}`;
+        if (key && sessions.has(key)) sessions.get(key).list.push(en);
+        else {
+          const block = { type: 'tr', s, e, en, list: [en] };
+          if (key) sessions.set(key, block);
+          blocks.push(block);
+        }
       }
       const html = layout(blocks)
         .map((b) => {
           const height = px(b.e) - px(b.s);
           const style = `top:${px(b.s)}px;height:${height}px;left:${(b.lane / b.lanes) * 100}%;width:${100 / b.lanes}%`;
           if (b.type === 'tr') {
-            return `<button type="button" class="tl-block tr ${b.en.status}" style="${style}" data-action="edit" data-id="${b.en.id}"
-              aria-label="${esc(nameOf(b.en))} ${b.en.time}">
-              <span class="tl-title">${b.en.status === 'done' ? '✓ ' : ''}${esc(nameOf(b.en))}</span>
-              ${wide ? `<span class="tl-time">${b.en.time}〜</span>` : ''}</button>`;
+            const grouped = !!b.en.sessionKey;
+            const allDone = b.list.every((x) => x.status === 'done');
+            const title = grouped ? b.en.sessionLabel || 'プログラム' : nameOf(b.en);
+            // まとめたブロックは、タップするとその日を選ぶ(下の一覧で種目ごとに開ける)
+            const action = grouped ? `data-action="select" data-date="${d}"` : `data-action="edit" data-id="${b.en.id}"`;
+            return `<button type="button" class="tl-block tr ${allDone ? 'done' : 'planned'}" style="${style}" ${action}
+              aria-label="${esc(title)} ${b.en.time}">
+              <span class="tl-title">${allDone ? '✓ ' : ''}${esc(title)}</span>
+              ${wide ? `<span class="tl-time">${b.en.time}〜${grouped ? ` ・ ${b.list.length}種目` : ''}</span>` : ''}</button>`;
           }
           const ev = b.o.event;
           const handles =

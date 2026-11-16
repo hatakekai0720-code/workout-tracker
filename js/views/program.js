@@ -1,6 +1,8 @@
 // 自動メニュー作成: 入力画面と、できたプログラムの確認画面。
-import { getState, getExercise, setProgram, makeId, BODY_PARTS } from '../store.js';
-import { toDateStr } from '../calc.js';
+import { getState, getExercise, setProgram, makeId, addEntries, removeProgramEntries, BODY_PARTS } from '../store.js';
+import { toDateStr, addDays, formatDateJa, formatShortDate } from '../calc.js';
+import { placeProgram, overlapWarning, EVENT_BUFFER_MIN } from '../placement.js';
+import { timeOptions, toMin, fromMin } from '../schedule.js';
 import { guideFor, groupByCategory, ownedEquipment, EQUIPMENT, LEVELS } from '../guides.js';
 import { MUSCLES } from '../muscles.js';
 import { createMannequin } from '../mannequin/index.js';
@@ -12,7 +14,7 @@ const NEXT_STATE = { normal: 'focus', focus: 'avoid', avoid: 'normal' };
 const PART_COLORS = { focus: '#eb6834', avoid: '#77756a' };
 
 let dlg = null;
-let cur = null; // { mode: 'form' | 'preview', f: 入力内容, config, result, week, swapping, onChange }
+let cur = null; // { mode: 'form' | 'preview' | 'place', f: 入力内容, config, result, week, swapping, place, onChange }
 let mannequin = null;
 
 const context = () => {
@@ -255,9 +257,145 @@ function previewHtml() {
       <button type="button" class="btn-ghost wide" data-action="regenerate">作り直す(別の種目の組み合わせ)</button>
       <button type="button" class="btn-ghost wide" data-action="back">入力内容を変える</button>
       <button type="button" class="btn-primary wide" data-action="save">${saved ? 'このプログラムに置き換えて保存' : 'このプログラムを保存'}</button>
+      <p class="hint after">保存すると、続けて日程に入れる画面に進みます。</p>
+      ${saved && cur.viewing ? '<button type="button" class="btn-primary wide" data-action="place">日程に入れる(空き時間に自動で配置)</button>' : ''}
       ${saved && cur.viewing ? '<button type="button" class="btn-danger wide" data-action="delete">保存したプログラムを削除</button>' : ''}
     </div>
   </div>`;
+}
+
+// ---- 日程に入れる画面 ----
+
+const plannedCount = (programId) => getState().entries.filter((e) => e.programId === programId && e.status === 'planned').length;
+
+// このプログラムで、すでに実施した回の sessionKey
+const doneSessionKeys = (programId) => new Set(getState().entries.filter((e) => e.programId === programId && e.status === 'done').map((e) => e.sessionKey));
+
+// 空き時間に自動で配置する。入れ直すときは、前に登録した未実施の予定はないものとして計算し、
+// 実施済みの回と、もう過ぎた日には置かない。
+function computePlacement() {
+  const s = getState();
+  const program = s.program;
+  const today = toDateStr(new Date());
+  const { weeks } = describe(program.templates, program.config, context());
+  cur.place.weeks = weeks;
+  cur.place.items = placeProgram({
+    weeks,
+    startDate: cur.place.startDate,
+    minDate: cur.place.startDate < today ? today : cur.place.startDate,
+    skip: new Set([...doneSessionKeys(program.id)].map((key) => key.slice(program.id.length + 1))), // 'id:週:s回' → '週:s回'
+    events: s.events,
+    entries: s.entries.filter((e) => !(e.programId === program.id && e.status === 'planned')),
+    settings: s.settings,
+    timeOfDay: program.config.timeOfDay,
+    partsOf: new Map(s.exercises.map((x) => [x.id, x.bodyPart])),
+  });
+}
+
+function placeHtml() {
+  const s = getState();
+  const program = s.program;
+  const { items, weeks, startDate } = cur.place;
+  const others = s.entries.filter((e) => !(e.programId === program.id && e.status === 'planned'));
+  const step = s.settings.timeStepMin;
+  const times = (value) => {
+    const list = timeOptions(step, toMin(s.settings.dayStart), toMin(s.settings.dayEnd) - step);
+    if (value && !list.includes(value)) list.push(value);
+    list.sort();
+    return `<option value="">未定</option>${list.map((t) => `<option ${t === value ? 'selected' : ''}>${t}</option>`).join('')}`;
+  };
+  const existing = plannedCount(program.id);
+  const doneCount = doneSessionKeys(program.id).size;
+  const warnCount = items.filter((it) => it.warnings.length || overlapWarning(it, items, s.events, others)).length;
+  const row = (it, i) => {
+    const warnings = [...it.warnings];
+    const overlap = overlapWarning(it, items, s.events, others);
+    if (overlap) warnings.push(overlap);
+    return `<li class="place-item ${it.kind}">
+      <div class="prog-main">
+        <span class="entry-name">${esc(it.label)}</span>
+        <span class="entry-sub">${formatDateJa(it.date)}${it.time ? ` ${it.time}〜${fromMin(toMin(it.time) + it.durationMin)}` : ' 時間未定'} ・ 約${it.durationMin}分</span>
+        ${warnings.map((w) => `<span class="place-warn">⚠ ${esc(w)}</span>`).join('')}
+      </div>
+      <div class="place-edit">
+        <input type="date" data-place="${i}" data-key="date" value="${it.date}" min="${toDateStr(new Date())}" aria-label="${esc(it.label)}の日付">
+        <select data-place="${i}" data-key="time" aria-label="${esc(it.label)}の開始時刻">${times(it.time || '')}</select>
+      </div>
+    </li>`;
+  };
+  return `<div class="sheet">
+    <header class="sheet-head">
+      <button type="button" class="btn-ghost" data-action="close">閉じる</button>
+      <h2>日程に入れる</h2>
+      <button type="button" class="btn-primary" data-action="apply">登録</button>
+    </header>
+    <div class="sheet-body">
+      <p class="prev"><b>${esc(program.name)}</b>希望の時間帯: ${TIMES_OF_DAY[program.config.timeOfDay]}</p>
+      <label class="field"><span>始める日(第1週の初日)</span><input type="date" data-field="startDate" value="${startDate}"></label>
+      <p class="hint after">予定(学校・バイトなど)とその前後${EVENT_BUFFER_MIN}分を避け、同じ部位は48時間以上空けて、空いている時間に置いています。日付と時刻は、下でひとつずつ変えられます。</p>
+      ${existing ? `<p class="hint">前に登録した未実施の予定 ${existing}件は、登録し直すと置き換わります(実施済みの記録は残ります)。</p>` : ''}
+      ${doneCount ? `<p class="hint">実施済みの ${doneCount}回はそのまま残し、まだ実施していない回だけを、今日以降に配置しています。</p>` : ''}
+      ${items.length ? '' : '<p class="empty">配置する回がありません(すべて実施済みか、期間が過ぎています)</p>'}
+      ${warnCount ? `<p class="place-warn">⚠ 確認が必要な回が ${warnCount}件あります</p>` : ''}
+      ${weeks
+        .map((w) => {
+          const from = addDays(startDate, w.index * 7);
+          const list = items.map((it, i) => ({ it, i })).filter(({ it }) => it.week === w.index);
+          if (!list.length) return '';
+          return `<section class="group"><h3>第${w.index + 1}週${w.deload ? '<span class="tag deload">軽めの週</span>' : ''}<small>${formatShortDate(from)}〜${formatShortDate(addDays(from, 6))}</small></h3>
+            <ul class="prog-list">${list.map(({ it, i }) => row(it, i)).join('')}</ul></section>`;
+        })
+        .join('')}
+      <button type="button" class="btn-ghost wide" data-action="replace-auto">自動で配置し直す</button>
+      <button type="button" class="btn-primary wide" data-action="apply">カレンダーに登録(${items.length}回ぶん)</button>
+    </div>
+  </div>`;
+}
+
+// 配置した内容を、カレンダーの予定(トレーニング)として登録する
+function applyPlacement() {
+  const s = getState();
+  const program = s.program;
+  const { items, weeks, startDate } = cur.place;
+  const run = s.exercises.find((x) => x.kind === 'run' && !x.archived);
+  const list = [];
+  for (const it of items) {
+    const base = {
+      date: it.date,
+      status: 'planned',
+      actual: null,
+      memo: '',
+      programId: program.id,
+      sessionKey: `${program.id}:${it.week}:${it.kind === 'run' ? 'r' : 's'}${it.index}`,
+      sessionLabel: it.label,
+      ...(it.time ? { time: it.time, durationMin: it.durationMin } : {}),
+    };
+    if (it.kind === 'run') {
+      if (run) list.push({ ...base, exerciseId: run.id, plan: { distanceKm: it.km, durationSec: null } });
+      continue;
+    }
+    for (const x of weeks[it.week].sessions[it.index].items) {
+      const unknown = getExercise(x.exerciseId).loadType === 'weighted' && x.weightKg === null;
+      list.push({ ...base, exerciseId: x.exerciseId, plan: { weightKg: x.weightKg ?? 0, reps: x.reps, sets: x.sets }, memo: unknown ? '重さは初回に決める' : '' });
+    }
+  }
+  if (!list.length) return toast('配置する回がありません');
+  removeProgramEntries(program.id);
+  addEntries(list);
+  setProgram({ ...program, schedule: { startDate } });
+  toast(`${items.length}回ぶんをカレンダーに登録しました`);
+  close();
+}
+
+function startPlacing() {
+  cur.mode = 'place';
+  const program = getState().program;
+  const tomorrow = addDays(toDateStr(new Date()), 1);
+  const previous = program.schedule?.startDate;
+  const keep = previous && (doneSessionKeys(program.id).size > 0 || previous > toDateStr(new Date()));
+  cur.place = { startDate: keep ? previous : tomorrow, items: [], weeks: [] };
+  computePlacement();
+  render(false);
 }
 
 // ---- 共通 ----
@@ -266,7 +404,7 @@ function render(keepScroll = true) {
   const scroll = keepScroll ? dlg.querySelector('.sheet-body')?.scrollTop ?? 0 : 0;
   mannequin?.dispose();
   mannequin = null;
-  dlg.innerHTML = cur.mode === 'form' ? formHtml() : previewHtml();
+  dlg.innerHTML = cur.mode === 'form' ? formHtml() : cur.mode === 'place' ? placeHtml() : previewHtml();
   dlg.querySelector('.sheet-body').scrollTop = scroll;
   if (cur.mode === 'form' && cur.f.showMap) mountMap();
 }
@@ -308,9 +446,23 @@ function setup() {
   });
 
   dlg.addEventListener('change', (ev) => {
-    if (ev.target.dataset.check !== 'runOn') return;
-    cur.f.runOn = ev.target.checked;
-    render();
+    const t = ev.target;
+    if (t.dataset.field === 'startDate' && t.value) {
+      // 始める日を変えたら、全体を配置し直す
+      cur.place.startDate = t.value;
+      computePlacement();
+      render();
+    } else if (t.dataset.place) {
+      // 1回ぶんを手で動かす。自動配置のときの注意書きは消し、重なりだけを確かめ直す
+      const it = cur.place.items[Number(t.dataset.place)];
+      if (t.dataset.key === 'date' && !t.value) return;
+      it[t.dataset.key] = t.value || null;
+      it.warnings = [];
+      render();
+    } else if (t.dataset.check === 'runOn') {
+      cur.f.runOn = t.checked;
+      render();
+    }
   });
 
   dlg.addEventListener('click', (ev) => {
@@ -385,22 +537,41 @@ function setup() {
         break;
       case 'save': {
         const c = cur.config;
+        const old = getState().program;
+        const leftovers = old ? plannedCount(old.id) : 0;
+        if (leftovers && !confirm(`前のプログラムからカレンダーに登録した未実施の予定 ${leftovers}件を消して、新しいプログラムに置き換えます。よろしいですか？`)) break;
+        if (old) removeProgramEntries(old.id);
         setProgram({
           id: makeId('prog'),
           name: `${GOALS[c.goal]} ${c.weeks}週(週${cur.result.templates.length}回)`,
           createdAt: toDateStr(new Date()),
           config: c,
           templates: cur.result.templates,
+          schedule: null,
         });
-        toast('プログラムを保存しました');
-        close();
+        toast('プログラムを保存しました。続けて日程に入れられます');
+        startPlacing();
         break;
       }
-      case 'delete':
-        if (!confirm('保存したプログラムを削除しますか？(これまでの記録は消えません)')) break;
+      case 'delete': {
+        const n = plannedCount(getState().program.id);
+        if (!confirm(`保存したプログラムを削除しますか？${n ? `カレンダーに登録した未実施の予定 ${n}件も消えます。` : ''}(実施済みの記録は消えません)`)) break;
+        removeProgramEntries(getState().program.id);
         setProgram(null);
         toast('プログラムを削除しました');
         close();
+        break;
+      }
+      case 'place':
+        startPlacing();
+        break;
+      case 'replace-auto':
+        computePlacement();
+        toast('自動で配置し直しました');
+        render();
+        break;
+      case 'apply':
+        applyPlacement();
         break;
     }
   });
@@ -417,7 +588,8 @@ function setup() {
 }
 
 // view: true なら、保存してあるプログラムの確認画面を開く。false なら入力画面から始める。
-export function openProgram({ view = false, onChange }) {
+// place: true なら、保存してあるプログラムを日程に入れる画面を開く。
+export function openProgram({ view = false, place = false, onChange }) {
   if (!dlg) setup();
   const saved = getState().program;
   cur = { mode: 'form', f: initialForm(), config: null, result: null, week: 0, swapping: null, viewing: false, onChange };
@@ -430,6 +602,10 @@ export function openProgram({ view = false, onChange }) {
     cur.result = { templates, ...describe(templates, saved.config, context()) };
     cur.mode = 'preview';
     cur.viewing = true;
+  }
+  if (place && saved) {
+    dlg.showModal();
+    return startPlacing();
   }
   render(false);
   dlg.showModal();

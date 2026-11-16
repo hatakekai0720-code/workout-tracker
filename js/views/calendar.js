@@ -1,5 +1,5 @@
 // カレンダータブ: 月・週・日の表示、選んだ日のメニューと予定、スケジュールの便利機能。
-import { getState, getExercise, getEntry, upsertEntry, setEvents, makeId, BODY_PARTS } from '../store.js';
+import { getState, getExercise, getEntry, upsertEntry, setEvents, moveSession, makeId, BODY_PARTS } from '../store.js';
 import { toDateStr, monthGrid, formatDateJa, formatShortDate, describePlan, describeActual, addDays, weekStart } from '../calc.js';
 import { computePRs, runCalories, PR_LABELS } from '../insights.js';
 import {
@@ -10,6 +10,7 @@ import {
   editEvent,
   toMin,
   fromMin,
+  timeOptions,
   EVENT_KINDS,
   DEFAULT_TRAINING_MIN,
 } from '../schedule.js';
@@ -23,9 +24,15 @@ const MAX_DOTS = 4;
 const CONFLICT_DAYS = 60; // 今日から何日先までの重なりを知らせるか
 const VIEWS = { month: '月', week: '週', day: '日' };
 
+// ほかの画面(ホームなど)から、次にカレンダーを開いたときに選ぶ日を指定する
+let pendingDate = null;
+export function focusCalendarDate(date) {
+  pendingDate = date;
+}
+
 export function mountCalendar(root) {
   const now = new Date();
-  const ui = { view: 'month', year: now.getFullYear(), month: now.getMonth(), selected: toDateStr(now) };
+  const ui = { view: 'month', year: now.getFullYear(), month: now.getMonth(), selected: toDateStr(now), moving: null };
 
   const settings = () => getState().settings;
   const nameOf = (e) => getExercise(e.exerciseId)?.name || '?';
@@ -58,29 +65,60 @@ export function mountCalendar(root) {
   function entryList(entries, prByEntry) {
     if (!entries.length) return '<p class="empty">メニューはまだありません</p>';
     const sorted = [...entries].sort((a, b) => (a.time || '99') < (b.time || '99') ? -1 : (a.time || '99') > (b.time || '99') ? 1 : 0);
+    let lastKey = null;
     return `<ul class="entry-list">${sorted
       .map((e) => {
         const ex = getExercise(e.exerciseId);
         const done = e.status === 'done';
-        let summary = done ? describeActual(ex, e.actual) : describePlan(ex, e.plan);
+        let summary = done ? describeActual(ex, e.actual) : describePlan(ex, e.plan).replace(/^0kg × /, ''); // 重さ未定の予定は「0kg」と出さない
         if (done && ex.kind === 'run') {
           const kcal = runCalories(getState().bodyLogs, e.date, e.actual.distanceKm);
           if (kcal != null) summary += ` ・ 約${Math.round(kcal)}kcal`;
         }
         const pr = prByEntry.get(e.id);
         const tag = ex.bodyPart ? `<span class="tag">${BODY_PARTS[ex.bodyPart]}</span>` : '';
-        const time = e.time ? `${e.time}〜${fromMin(toMin(e.time) + (e.durationMin || DEFAULT_TRAINING_MIN))} ・ ` : '';
-        return `<li><button type="button" class="entry ${e.status}" data-action="edit" data-id="${e.id}">
+        const range = e.time ? `${e.time}〜${fromMin(toMin(e.time) + (e.durationMin || DEFAULT_TRAINING_MIN))}` : '';
+        // プログラムの1回ぶん(同じ sessionKey)の先頭に、見出しと「日時を変える」を付ける
+        let head = '';
+        const key = e.sessionKey ? `${e.sessionKey}|${e.time || ''}` : null;
+        if (key && key !== lastKey) head = sessionHead(e, range, sorted.filter((x) => x.sessionKey === e.sessionKey && (x.time || '') === (e.time || '')));
+        lastKey = key;
+        return `${head}<li><button type="button" class="entry ${e.status} ${key ? 'in-session' : ''}" data-action="edit" data-id="${e.id}">
           <span class="entry-mark">${done ? '✓' : ''}</span>
           <span class="entry-main">
             <span class="entry-name">${esc(ex.name)}${tag}</span>
-            <span class="entry-sub">${time}${done ? '' : '予定 '}${esc(summary)}</span>
+            <span class="entry-sub">${range && !key ? `${range} ・ ` : ''}${done ? '' : '予定 '}${esc(summary)}</span>
+            ${e.memo && !done ? `<span class="entry-sub">${esc(e.memo)}</span>` : ''}
             ${pr ? `<span class="entry-pr">🏆 自己ベスト ${pr.join('・')}</span>` : ''}
           </span>
           <span class="chev">›</span>
         </button></li>`;
       })
       .join('')}</ul>`;
+  }
+
+  // プログラムの1回ぶんの見出し。未実施の種目が残っていれば、まとめて日時を変えられる。
+  function sessionHead(e, range, group) {
+    const movable = group.some((x) => x.status === 'planned');
+    const moving = ui.moving === e.sessionKey;
+    const s = settings();
+    const times = timeOptions(s.timeStepMin, toMin(s.dayStart), toMin(s.dayEnd) - s.timeStepMin);
+    if (e.time && !times.includes(e.time)) times.push(e.time);
+    times.sort();
+    return `<li class="session-head">
+      <span class="entry-main"><span class="entry-name">${esc(e.sessionLabel || 'プログラム')}<span class="tag">プログラム</span></span>
+        <span class="entry-sub">${range || '時間未定'} ・ ${group.length}種目</span></span>
+      ${movable ? `<button type="button" class="btn-ghost" data-action="move-session" data-key="${e.sessionKey}">${moving ? 'やめる' : '日時を変える'}</button>` : ''}
+      ${
+        moving
+          ? `<div class="session-move">
+              <input type="date" data-move="date" value="${e.date}" aria-label="移す日付">
+              <select data-move="time" aria-label="移す時刻"><option value="">未定</option>${times.map((t) => `<option ${t === e.time ? 'selected' : ''}>${t}</option>`).join('')}</select>
+              <button type="button" class="btn-primary" data-action="apply-move" data-key="${e.sessionKey}" data-from="${e.date}">移す</button>
+            </div>`
+          : ''
+      }
+    </li>`;
   }
 
   function eventList(occurrences) {
@@ -109,7 +147,7 @@ export function mountCalendar(root) {
       .map(({ entry, occurrence: o }) => {
         const options = rescheduleOptions(entry, events, entries, { dayStart: toMin(s.dayStart), dayEnd: toMin(s.dayEnd), step: s.timeStepMin });
         return `<li>
-          <span><b>${formatDateJa(entry.date)} ${entry.time}</b> ${esc(nameOf(entry))}</span>
+          <span><b>${formatDateJa(entry.date)} ${entry.time}</b> ${esc(entry.sessionKey ? entry.sessionLabel || 'プログラム' : nameOf(entry))}</span>
           <span class="entry-sub">「${esc(o.event.title)}」(${o.start}〜${o.end})と重なっています</span>
           <span class="chip-picker">${
             options.length
@@ -187,6 +225,10 @@ export function mountCalendar(root) {
 
   function render() {
     const today = toDateStr(new Date());
+    if (pendingDate) {
+      selectDate(pendingDate);
+      pendingDate = null;
+    }
     const { entries, events, exercises } = getState();
     const byDate = new Map();
     for (const e of entries) {
@@ -321,9 +363,26 @@ export function mountCalendar(root) {
       }
       case 'move-entry': {
         const entry = getEntry(t.dataset.id);
-        upsertEntry({ ...entry, date: t.dataset.date, time: t.dataset.time });
+        // プログラムの1回ぶんは、まとめて動かす
+        if (entry.sessionKey) moveSession(entry.sessionKey, entry.date, t.dataset.date, t.dataset.time);
+        else upsertEntry({ ...entry, date: t.dataset.date, time: t.dataset.time });
         toast(`${formatDateJa(t.dataset.date)} ${t.dataset.time} に移しました`);
         break;
+      }
+      case 'move-session':
+        ui.moving = ui.moving === t.dataset.key ? null : t.dataset.key;
+        break;
+      case 'apply-move': {
+        const box = t.closest('.session-move');
+        const date = box.querySelector('[data-move="date"]').value;
+        const time = box.querySelector('[data-move="time"]').value;
+        if (!date) return;
+        moveSession(t.dataset.key, t.dataset.from, date, time);
+        ui.moving = null;
+        selectDate(date);
+        toast(`${formatDateJa(date)}${time ? ` ${time}` : ''} に移しました`);
+        afterScheduleChange();
+        return;
       }
     }
     render();

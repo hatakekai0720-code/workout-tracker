@@ -168,6 +168,15 @@ test('RPE とプログラムを復元で残す。壊れたプログラムはそ�
   assert.deepEqual(state.program.config, { goal: 'hypertrophy', focus: ['chest'], avoid: [], weeks: 8, perWeek: 3, minutes: 60, equipment: ['dumbbell'], gymSessions: 3,
     level: 'beginner', excluded: ['ex_squat'], run: { perWeek: 2, km: 3 }, timeOfDay: 'night', seed: 4 });
   assert.deepEqual(state.program.templates, [{ key: 'fullA', label: '全身A', gym: false, items: [{ slot: 'squat', exerciseId: 'ex_squat', sets: 3 }] }]);
+  assert.equal(state.program.schedule, null);
+  // 日程に入れたあとの印も残す
+  v.program.schedule = { startDate: '2026-11-17' };
+  Object.assign(v.entries[1], { programId: 'prog1', sessionKey: 'prog1:0:0', sessionLabel: '全身A' });
+  v.entries[0].sessionKey = 'bad key"';
+  const placed = parse(v).state;
+  assert.deepEqual(placed.program.schedule, { startDate: '2026-11-17' });
+  assert.deepEqual([placed.entries[1].programId, placed.entries[1].sessionKey, placed.entries[1].sessionLabel], ['prog1', 'prog1:0:0', '全身A']);
+  assert.equal('sessionKey' in placed.entries[0], false);
   // 種目マスタにない種目を指すプログラムは捨てるが、記録の復元は成功する
   v.program.templates[0].items[0].exerciseId = 'missing';
   const broken = parse(v);

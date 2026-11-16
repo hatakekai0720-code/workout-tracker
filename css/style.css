@@ -622,6 +622,22 @@ select:disabled { opacity: .55; }
 .prog-item > .btn-ghost { flex: none; min-height: 34px; padding: 0 10px; font-size: 13px; }
 .prog-swap { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px; padding: 6px; border: 1px dashed var(--line); background: var(--surface); }
 
+/* ---- プログラムの日程 ---- */
+.place-item { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; }
+.place-item + .place-item { border-top: 1px solid var(--line); }
+.place-edit { display: flex; gap: 6px; }
+.place-edit input, .place-edit select { min-height: 38px; padding: 4px 6px; font-size: 14px; }
+.place-warn { font-size: 12px; font-weight: 700; color: var(--danger); }
+.group > h3 small { margin-left: 8px; font-weight: 400; font-size: 12px; color: var(--muted); }
+.session-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; background: var(--soft); }
+.session-head > .btn-ghost { flex: none; min-height: 34px; padding: 0 10px; font-size: 13px; }
+.session-move { flex-basis: 100%; display: flex; gap: 6px; }
+.session-move input, .session-move select { min-height: 38px; padding: 4px 6px; font-size: 14px; }
+.session-move .btn-primary { flex: none; min-height: 38px; }
+.entry.in-session { padding-left: 18px; }
+.next-item { display: flex; padding: 6px 8px; }
+.prog-summary span + span { margin-top: 2px; }
+
 /* ---- お知らせ(バルーン) ---- */
 #toast {
   inset: auto; margin: 0; overflow: visible;

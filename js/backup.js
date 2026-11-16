@@ -94,6 +94,10 @@ function entry(e, exById, seen) {
   if (typeof e.time === 'string' && TIME.test(e.time)) out.time = e.time;
   if (int(e.durationMin, 5) && e.durationMin <= 600) out.durationMin = e.durationMin;
   if (int(e.rpe, 1) && e.rpe <= 10) out.rpe = e.rpe; // きつさ(1〜10)
+  // プログラムから登録した記録の印(どのプログラムの、どの回か)
+  if (typeof e.programId === 'string' && ID.test(e.programId)) out.programId = e.programId;
+  if (typeof e.sessionKey === 'string' && /^[A-Za-z0-9_:-]{1,80}$/.test(e.sessionKey)) out.sessionKey = e.sessionKey;
+  if (typeof e.sessionLabel === 'string' && e.sessionLabel) out.sessionLabel = e.sessionLabel.slice(0, 30);
   return out;
 }
 
@@ -203,6 +207,8 @@ function program(x, exById) {
       seed: int(c.seed, 0) ? c.seed : 0,
     },
     templates,
+    // 日程に入れたときの開始日
+    schedule: isObj(x.schedule) && typeof x.schedule.startDate === 'string' && DATE.test(x.schedule.startDate) ? { startDate: x.schedule.startDate } : null,
   };
 }
 

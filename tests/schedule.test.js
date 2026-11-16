@@ -171,3 +171,15 @@ test('空き時間と振り替え候補', () => {
     { date: '2026-11-11', time: '16:00' },
   ]);
 });
+
+test('プログラムの1回ぶん(同じ sessionKey)は、重なりも振り替えもまとめて扱う', () => {
+  const events = [ev({ repeat: { freq: 'daily' }, start: '17:00', end: '22:00' })];
+  const a = training('p1', '2026-11-09', '18:00', { sessionKey: 'prog:0:0' });
+  const b = training('p2', '2026-11-09', '18:00', { sessionKey: 'prog:0:0' });
+  const c = training('p3', '2026-11-10', '18:00', { sessionKey: 'prog:0:1' });
+  const conflicts = findConflicts([a, b, c], events, '2026-11-01', '2026-11-30');
+  assert.deepEqual(conflicts.map((x) => x.entry.id), ['p1', 'p3']); // p2 は p1 と同じ回なので出さない
+  // 同じ回のもう1つの種目(p2)がその時間をふさいでいる、とは数えない
+  const opts = rescheduleOptions(a, [], [a, b], { dayStart: 360, dayEnd: 1380, step: 60 });
+  assert.ok(opts.some((o) => o.date === '2026-11-09' && o.time === '17:00'));
+});

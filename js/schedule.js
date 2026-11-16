@@ -196,6 +196,7 @@ export function findConflicts(entries, events, from, to) {
   const out = [];
   for (const e of entries) {
     if (!e.time || e.status !== 'planned' || e.date < from || e.date > to) continue;
+    if (out.some((x) => sameSession(x.entry, e))) continue; // 同じ回の種目は1件にまとめる
     const hit = occ.find((o) => o.date === e.date && overlaps(entryRange(e), [toMin(o.start), toMin(o.end)]));
     if (hit) out.push({ entry: e, occurrence: hit });
   }
@@ -203,11 +204,15 @@ export function findConflicts(entries, events, from, to) {
 }
 
 // その日のふさがっている時間帯(予定と、時刻つきのトレーニング)。[開始分, 終了分] の配列。
-export function busyRanges(date, events, entries, exceptEntryId = null) {
+// except: 動かそうとしている記録(同じ回にまとめられた記録も除く)
+export function busyRanges(date, events, entries, except = null) {
   const busy = expandEvents(events, date, date).map((o) => [toMin(o.start), toMin(o.end)]);
-  for (const e of entries) if (e.date === date && e.time && e.id !== exceptEntryId) busy.push(entryRange(e));
+  for (const e of entries) if (e.date === date && e.time && !sameSession(e, except)) busy.push(entryRange(e));
   return busy;
 }
+
+// プログラムから登録した記録は、1回ぶんの種目が同じ sessionKey を持つ
+export const sameSession = (a, b) => !!a && !!b && (a.id === b.id || (!!a.sessionKey && a.sessionKey === b.sessionKey));
 
 // 空いている開始時刻(分)の一覧。dayStart〜dayEnd の間で、step 分きざみ。
 export function freeStarts(busy, duration, dayStart, dayEnd, step) {
@@ -224,12 +229,12 @@ export function rescheduleOptions(entry, events, entries, { dayStart, dayEnd, st
   const nearest = (list, pick) => list.filter(pick).sort((a, b) => Math.abs(a - want) - Math.abs(b - want))[0];
   const out = [];
   const add = (date, min) => min !== undefined && out.push({ date, time: fromMin(min) });
-  const today = freeStarts(busyRanges(entry.date, events, entries, entry.id), duration, dayStart, dayEnd, step);
+  const today = freeStarts(busyRanges(entry.date, events, entries, entry), duration, dayStart, dayEnd, step);
   add(entry.date, nearest(today, (s) => s < want));
   add(entry.date, nearest(today, (s) => s > want));
   for (let i = 1; i <= days; i++) {
     const date = addDays(entry.date, i);
-    add(date, nearest(freeStarts(busyRanges(date, events, entries, entry.id), duration, dayStart, dayEnd, step), () => true));
+    add(date, nearest(freeStarts(busyRanges(date, events, entries, entry), duration, dayStart, dayEnd, step), () => true));
   }
   return out.slice(0, max);
 }
