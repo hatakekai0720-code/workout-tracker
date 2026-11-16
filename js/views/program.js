@@ -41,6 +41,7 @@ function initialForm() {
     runOn: (p?.run.perWeek || 0) > 0,
     runPerWeek: p?.run.perWeek || 2,
     runKm: String(p?.run.km || 3),
+    separateRun: p ? p.separateRun === true : true, // 新しく作るときは「分ける」が最初から入っている
     timeOfDay: p?.timeOfDay || 'any',
     showMap: false,
     error: '',
@@ -66,6 +67,7 @@ function toConfig(f, seed) {
       level: f.levelChoice === 'auto' ? autoLevel(entries, exercises).level : f.levelChoice,
       excluded: [...f.excluded],
       run: { perWeek: f.runOn ? f.runPerWeek : 0, km: f.runOn ? km : 0 },
+      ...(f.runOn && f.separateRun ? { separateRun: true } : {}), // 任意。ランを筋トレと別の日にする
       timeOfDay: f.timeOfDay,
       seed,
     },
@@ -143,7 +145,9 @@ function formHtml() {
         ${
           f.runOn
             ? `<div class="field"><span>週の回数</span>${choice('runPerWeek', [1, 2, 3, 4, 5, 6].map((n) => [n, `${n}回`]), f.runPerWeek)}</div>
-               <label class="field"><span>1回の距離の目安 (km)</span><input type="number" inputmode="decimal" min="0" step="0.5" data-input="runKm" value="${esc(f.runKm)}"></label>`
+               <label class="field"><span>1回の距離の目安 (km)</span><input type="number" inputmode="decimal" min="0" step="0.5" data-input="runKm" value="${esc(f.runKm)}"></label>
+               <label class="check"><input type="checkbox" data-check="separateRun" ${f.separateRun ? 'checked' : ''}><span>筋トレと同じ日にしない</span></label>
+               <p class="hint">日程に入れるとき、ランは筋トレのない日に置きます。空いている日が足りない週だけ、同じ日の別の時間になります。</p>`
             : ''
         }
       </section>
@@ -288,6 +292,7 @@ function computePlacement() {
     entries: s.entries.filter((e) => !(e.programId === program.id && e.status === 'planned')),
     settings: s.settings,
     timeOfDay: program.config.timeOfDay,
+    separateRun: program.config.separateRun === true,
     partsOf: new Map(s.exercises.map((x) => [x.id, x.bodyPart])),
   });
 }
@@ -332,7 +337,7 @@ function placeHtml() {
     <div class="sheet-body">
       <p class="prev"><b>${esc(program.name)}</b>希望の時間帯: ${TIMES_OF_DAY[program.config.timeOfDay]}</p>
       <label class="field"><span>始める日(第1週の初日)</span><input type="date" data-field="startDate" value="${startDate}"></label>
-      <p class="hint after">予定(学校・バイトなど)とその前後${EVENT_BUFFER_MIN}分を避け、同じ部位は48時間以上空けて、空いている時間に置いています。日付と時刻は、下でひとつずつ変えられます。</p>
+      <p class="hint after">予定(学校・バイトなど)とその前後${EVENT_BUFFER_MIN}分を避け、同じ部位は48時間以上空けて${program.config.separateRun ? '、ランは筋トレのない日にして' : ''}、空いている時間に置いています。日付と時刻は、下でひとつずつ変えられます。</p>
       ${existing ? `<p class="hint">前に登録した未実施の予定 ${existing}件は、登録し直すと置き換わります(実施済みの記録は残ります)。</p>` : ''}
       ${doneCount ? `<p class="hint">実施済みの ${doneCount}回はそのまま残し、まだ実施していない回だけを、今日以降に配置しています。</p>` : ''}
       ${items.length ? '' : '<p class="empty">配置する回がありません(すべて実施済みか、期間が過ぎています)</p>'}
@@ -462,6 +467,8 @@ function setup() {
     } else if (t.dataset.check === 'runOn') {
       cur.f.runOn = t.checked;
       render();
+    } else if (t.dataset.check === 'separateRun') {
+      cur.f.separateRun = t.checked;
     }
   });
 

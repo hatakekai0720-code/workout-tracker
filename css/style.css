@@ -491,6 +491,12 @@ select:disabled { opacity: .55; }
   height: 380px; display: grid; place-items: center;
   border: 1px solid var(--field-line); background: var(--surface);
 }
+.mq-stage { position: relative; }
+.mq-pan { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; }
+.mq-pan button {
+  width: 40px; height: 40px; padding: 0; font-size: 14px; line-height: 1;
+  border: 1px solid var(--field-line); border-radius: 3px; background: var(--surface); color: var(--text); opacity: 0.85;
+}
 .mq-stage canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
 .mq-stage .empty { margin: 0; }
 .mq-2d { display: flex; justify-content: center; gap: 4px; width: 100%; height: 100%; padding: 6px 0; }

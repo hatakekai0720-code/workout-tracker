@@ -108,6 +108,27 @@ test('overlapWarning: 手で動かした先が重なっていれば知らせる'
   assert.equal(overlapWarning(items[3], items, [ev({ date: '2026-11-20', start: '06:00', end: '23:00' })], []), null); // 時刻なしは対象外
 });
 
+test('ランを分ける設定: 筋トレと同じ日を避け、どうしても無理な日だけ注意つきで同じ日にする', () => {
+  // 筋トレ4回+ラン3回 → 7日に1つずつ。分けない設定では理想の日に寄せて同じ日になることがある
+  const four = Array.from({ length: 4 }, (_, i) => session(`回${i}`, [i % 2 ? 'sq' : 'bench']));
+  const sep = place({ weeks: [week(0, four, [3, 3, 3])], separateRun: true });
+  const days = (list, kind) => list.filter((i) => i.kind === kind).map((i) => i.date);
+  assert.ok(days(sep, 'run').every((d) => !days(sep, 'session').includes(d)), JSON.stringify(sep.map((i) => [i.date, i.label])));
+  assert.ok(sep.every((i) => i.warnings.length === 0));
+  // 筋トレ6回+ラン2回 → 空いている日は1日だけ。1回は同じ日になり、注意が付く
+  const six = Array.from({ length: 6 }, (_, i) => session(`回${i}`, [i % 2 ? 'sq' : 'bench']));
+  const crowded = place({ weeks: [week(0, six, [3, 3])], separateRun: true });
+  const runs = crowded.filter((i) => i.kind === 'run');
+  const same = runs.filter((r) => days(crowded, 'session').includes(r.date));
+  assert.equal(same.length, 1);
+  assert.ok(same[0].warnings.some((w) => w.includes('筋トレと同じ日')));
+  // 既にある筋トレの記録の日も避ける
+  const entries = [{ date: '2026-11-19', exerciseId: 'bench', status: 'planned' }]; // 理想の木曜に筋トレ
+  const one = place({ weeks: [week(0, [], [3])], entries, separateRun: true, timeOfDay: 'any' });
+  assert.notEqual(one[0].date, '2026-11-19');
+  assert.equal(place({ weeks: [week(0, [], [3])], entries, timeOfDay: 'any' })[0].date, '2026-11-19'); // 分けない設定なら木曜
+});
+
 test('希望の時間帯に置けない日より、少しずらしてでも置ける日を選ぶ', () => {
   // 火曜始まり。水曜の夜はバイト。ラン2回の理想は水曜と日曜だが、水曜は夜に置けないので近い日の夜にする
   const items = place({ weeks: [week(0, [], [3, 3])], startDate: '2026-11-17', events: [ev({ date: '2026-11-18' })] });

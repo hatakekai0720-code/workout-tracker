@@ -101,7 +101,7 @@ export function mountExercises(root) {
     }
     const tap = '筋肉をタップすると、効く種目の一覧が出ます。';
     let text = tap;
-    if (mannequin?.mode === '3d') text = `1本指でドラッグして回転、2本指でつまんで拡大・縮小。${tap}`;
+    if (mannequin?.mode === '3d') text = `1本指でドラッグして回転、2本指でつまんで拡大・縮小、2本指のまま上下に動かすと移動(右の▲▼でも動かせます)。${tap}`;
     else if (mannequin?.reason === 'webgl') text = `この端末では3Dが使えないため、2Dで表示しています。${tap}`;
     else if (mannequin?.reason === 'load') text = `3Dの部品を読み込めなかったため、2Dで表示しています(通信できる状態で開き直すと3Dになります)。${tap}`;
     info.innerHTML = `<p class="hint">${text}</p>`;
