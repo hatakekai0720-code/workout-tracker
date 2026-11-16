@@ -43,6 +43,7 @@ function defaultState() {
       { id: 'tpl_late', title: '遅番', kind: 'work', start: '17:00', end: '22:00' },
     ],
     terms: [],
+    program: null, // 自動メニュー作成で保存したプログラム(1つだけ)。形は js/program.js を参照
   };
 }
 
@@ -181,5 +182,12 @@ export function addTerm(term, events) {
 export function deleteTerm(id) {
   state.terms = state.terms.filter((t) => t.id !== id);
   state.events = state.events.filter((e) => e.termId !== id);
+  save();
+}
+
+// ---- プログラム(自動メニュー作成) ----
+
+export function setProgram(program) {
+  state.program = program;
   save();
 }

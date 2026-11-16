@@ -48,6 +48,7 @@ function modelFromEntry(e) {
     date: e.date,
     time: e.time || '',
     duration: e.durationMin ? String(e.durationMin) : '',
+    rpe: e.rpe ? String(e.rpe) : '',
   };
   if (e.actual) {
     if (ex.kind === 'run') m.actualRun = { distance: str(e.actual.distanceKm), ...splitDur(e.actual.durationSec) };
@@ -148,6 +149,8 @@ function buildEntry() {
   };
   delete entry.time;
   delete entry.durationMin;
+  delete entry.rpe;
+  if (m.done && m.rpe) entry.rpe = Number(m.rpe);
   if (m.time) {
     entry.time = m.time;
     if (m.duration) entry.durationMin = Number(m.duration);
@@ -213,6 +216,13 @@ function actualSection(ex, m) {
     </div>`;
 }
 
+// きつさ(RPE)。自動メニュー作成で、次の重さを決める参考にする。
+const RPE_LABELS = { 10: '10 限界(もう1回もできない)', 9: '9 あと1回できた', 8: '8 あと2回できた', 7: '7 あと3回できた', 6: '6 まだ余裕があった', 5: '5 かなり余裕', 4: '4', 3: '3', 2: '2', 1: '1 とても軽い' };
+const rpeField = (m) => `<label class="field rpe"><span>きつさ(RPE・任意)</span>
+    <select data-path="rpe"><option value="">未入力</option>${[10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+      .map((n) => `<option value="${n}" ${String(n) === m.rpe ? 'selected' : ''}>${RPE_LABELS[n]}</option>`)
+      .join('')}</select></label>`;
+
 // 開始時刻の選択肢。時刻を入れると、週・日のタイムラインに時間帯で表示される。
 function timeChoices(value) {
   const step = getState().settings.timeStepMin;
@@ -273,7 +283,7 @@ function render() {
         ${planSection(ex, m)}
 
         <label class="toggle"><input type="checkbox" data-path="done" ${m.done ? 'checked' : ''}><span>実施済みにする</span></label>
-        ${m.done ? `<h3>実績</h3>${actualSection(ex, m)}` : ''}
+        ${m.done ? `<h3>実績</h3>${actualSection(ex, m)}${rpeField(m)}` : ''}
 
         <label class="field"><span>メモ</span><textarea data-path="memo" rows="2">${esc(m.memo)}</textarea></label>
         <p class="error" role="alert" hidden></p>
@@ -423,6 +433,7 @@ export function openEntryForm({ date, entryId = null, exerciseId = null, onChang
       date,
       time: '',
       duration: '',
+      rpe: '',
     };
   }
   session = { date, entryId, onChange, model };

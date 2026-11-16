@@ -588,6 +588,40 @@ select:disabled { opacity: .55; }
 .row.when select, .row.when input { padding: 6px 4px; font-size: 14px; }
 .sheet-body .btn-ghost.wide, .sheet-body .btn-danger.wide { margin-top: 8px; }
 
+/* ---- 回復マップ ---- */
+.map-mode { display: flex; justify-content: flex-end; margin-top: 8px; }
+.map-mode .segmented button { min-height: 30px; font-size: 12px; }
+.recovery-legend { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-right: 0 !important; }
+.recovery-legend span { display: inline-flex; align-items: center; gap: 4px; margin: 0 !important; }
+.recovery-legend i { width: 10px; height: 10px; border: 1px solid var(--line); }
+.recovery-legend i.none { background: #cdc3ba; }
+
+/* ---- プログラム(自動メニュー作成) ---- */
+.field.rpe { margin-top: 10px; }
+.chip.part-focus { border-color: #b3541e; background: #eb6834; color: #fff; font-weight: 700; }
+.chip.part-avoid { border-color: #55534a; background: #77756a; color: #fff; }
+.group .field { margin-top: 10px; }
+.group .field:first-of-type { margin-top: 0; }
+.group .hint + .field, .group .chip-picker + .field { margin-top: 10px; }
+.group details summary { min-height: 36px; display: flex; align-items: center; cursor: pointer; font-size: 14px; }
+.group details h4 { margin: 10px 0 4px; }
+.prog-summary { display: flex; flex-direction: column; font-size: 14px; }
+.prog-summary span { font-size: 12px; color: var(--muted); }
+.week-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 16px; }
+.week-nav b { display: inline-flex; align-items: center; gap: 6px; }
+.week-nav .icon-btn:disabled { opacity: .35; }
+.tag.deload, .week-strip .deload { border-color: #b98a1f; background: #ffe9a8; color: #000; }
+.week-strip { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.week-strip button { min-width: 32px; min-height: 32px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface); font-size: 13px; }
+.week-strip button.on { outline: 2px solid var(--accent); outline-offset: 1px; font-weight: 700; }
+.prog-session > h3 small { margin-left: 8px; font-weight: 400; font-size: 12px; color: var(--muted); }
+.prog-list { list-style: none; margin: 0; padding: 0; }
+.prog-item { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 7px 0; }
+.prog-item + .prog-item { border-top: 1px solid var(--line); }
+.prog-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.prog-item > .btn-ghost { flex: none; min-height: 34px; padding: 0 10px; font-size: 13px; }
+.prog-swap { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px; padding: 6px; border: 1px dashed var(--line); background: var(--surface); }
+
 /* ---- お知らせ(バルーン) ---- */
 #toast {
   inset: auto; margin: 0; overflow: visible;

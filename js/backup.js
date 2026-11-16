@@ -2,6 +2,7 @@
 import { BODY_PARTS } from './store.js';
 import { cleanMuscles } from './muscles.js';
 import { CUSTOM_FIELDS, EQUIPMENT } from './guides.js';
+import { GOALS, TIMES_OF_DAY, SLOT_KEYS } from './program.js';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const ID = /^[A-Za-z0-9_-]{1,40}$/;
@@ -92,6 +93,7 @@ function entry(e, exById, seen) {
   // 任意の項目: 開始時刻と所要時間
   if (typeof e.time === 'string' && TIME.test(e.time)) out.time = e.time;
   if (int(e.durationMin, 5) && e.durationMin <= 600) out.durationMin = e.durationMin;
+  if (int(e.rpe, 1) && e.rpe <= 10) out.rpe = e.rpe; // きつさ(1〜10)
   return out;
 }
 
@@ -159,6 +161,49 @@ function bodyLog(l, seen) {
   }
   seen.add(l.date);
   return { date: l.date, weightKg: l.weightKg, bodyFatPct: numOrNull(l.bodyFatPct) };
+}
+
+// 保存したプログラム。形がおかしければ、プログラムだけ捨てる(記録の復元は続ける)。
+function program(x, exById) {
+  if (!isObj(x) || !isObj(x.config) || !Array.isArray(x.templates)) return null;
+  const c = x.config;
+  const parts = (list) => [...new Set(Array.isArray(list) ? list : [])].filter((p) => p in BODY_PARTS);
+  const ok =
+    ID.test(x.id) && c.goal in GOALS && int(c.weeks, 1) && c.weeks <= 52 && int(c.perWeek, 1) && c.perWeek <= 6 &&
+    [30, 45, 60, 90].includes(c.minutes) && ['beginner', 'intermediate', 'advanced'].includes(c.level);
+  if (!ok) return null;
+  const templates = [];
+  for (const t of x.templates) {
+    if (!isObj(t) || typeof t.key !== 'string' || !ID.test(t.key) || typeof t.label !== 'string' || !Array.isArray(t.items)) return null;
+    const items = [];
+    for (const it of t.items) {
+      if (!isObj(it) || !exById.has(it.exerciseId) || !SLOT_KEYS.includes(it.slot) || !int(it.sets, 1) || it.sets > 10) return null;
+      items.push({ slot: it.slot, exerciseId: it.exerciseId, sets: it.sets });
+    }
+    templates.push({ key: t.key, label: t.label.slice(0, 20), gym: t.gym === true, items });
+  }
+  const run = isObj(c.run) ? c.run : {};
+  return {
+    id: x.id,
+    name: typeof x.name === 'string' ? x.name.slice(0, 60) : 'プログラム',
+    createdAt: typeof x.createdAt === 'string' && DATE.test(x.createdAt) ? x.createdAt : null,
+    config: {
+      goal: c.goal,
+      focus: parts(c.focus),
+      avoid: parts(c.avoid),
+      weeks: c.weeks,
+      perWeek: c.perWeek,
+      minutes: c.minutes,
+      equipment: [...new Set(Array.isArray(c.equipment) ? c.equipment : [])].filter((k) => k in EQUIPMENT),
+      gymSessions: int(c.gymSessions, 0) ? Math.min(c.gymSessions, c.perWeek) : 0,
+      level: c.level,
+      excluded: [...new Set(Array.isArray(c.excluded) ? c.excluded : [])].filter((id) => exById.has(id)),
+      run: { perWeek: int(run.perWeek, 0) ? Math.min(run.perWeek, 6) : 0, km: num(run.km) && run.km <= 100 ? run.km : 0 },
+      timeOfDay: c.timeOfDay in TIMES_OF_DAY ? c.timeOfDay : 'any',
+      seed: int(c.seed, 0) ? c.seed : 0,
+    },
+    templates,
+  };
 }
 
 const DEFAULT_TEMPLATES = [
@@ -229,6 +274,7 @@ export function parseBackup(text, today) {
         events,
         eventTemplates,
         terms,
+        program: program(raw.program, exById),
       },
     };
   } catch (err) {

@@ -152,3 +152,26 @@ test('壊れた予定は断る', () => {
   assert.ok(bad((e) => (e.exceptions = { '2026-11-09': { start: '22:00', end: '21:00' } })));
   assert.ok(bad((e) => (e.id = 'x" onclick="y')));
 });
+
+test('RPE とプログラムを復元で残す。壊れたプログラムはそれだけ捨てる', () => {
+  const v = valid();
+  v.entries[0].rpe = 8;
+  v.entries[1].rpe = 11; // 範囲外は捨てる
+  v.program = {
+    id: 'prog1', name: '筋肥大 8週', createdAt: '2026-11-16',
+    config: { goal: 'hypertrophy', focus: ['chest', 'nope'], avoid: [], weeks: 8, perWeek: 3, minutes: 60, equipment: ['dumbbell', 'jetpack'], gymSessions: 5,
+      level: 'beginner', excluded: ['ex_squat', 'gone'], run: { perWeek: 2, km: 3 }, timeOfDay: 'night', seed: 4, extra: 1 },
+    templates: [{ key: 'fullA', label: '全身A', gym: false, items: [{ slot: 'squat', exerciseId: 'ex_squat', sets: 3, junk: 1 }] }],
+  };
+  const { state } = parse(v);
+  assert.deepEqual([state.entries[0].rpe, 'rpe' in state.entries[1]], [8, false]);
+  assert.deepEqual(state.program.config, { goal: 'hypertrophy', focus: ['chest'], avoid: [], weeks: 8, perWeek: 3, minutes: 60, equipment: ['dumbbell'], gymSessions: 3,
+    level: 'beginner', excluded: ['ex_squat'], run: { perWeek: 2, km: 3 }, timeOfDay: 'night', seed: 4 });
+  assert.deepEqual(state.program.templates, [{ key: 'fullA', label: '全身A', gym: false, items: [{ slot: 'squat', exerciseId: 'ex_squat', sets: 3 }] }]);
+  // 種目マスタにない種目を指すプログラムは捨てるが、記録の復元は成功する
+  v.program.templates[0].items[0].exerciseId = 'missing';
+  const broken = parse(v);
+  assert.equal(broken.error, undefined);
+  assert.equal(broken.state.program, null);
+  assert.equal(parse(valid()).state.program, null);
+});

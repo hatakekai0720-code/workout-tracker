@@ -6,6 +6,8 @@ import { computePRs, streak, weekSummary, formatPR, PR_LABELS } from '../insight
 import { buildSuggestions, defaultTargetDate } from '../suggest.js';
 import { isAvailable } from '../guides.js';
 import { openEntryForm } from './entry.js';
+import { openProgram } from './program.js';
+import { GOALS } from '../program.js';
 import { esc, toast } from '../util.js';
 
 const RECENT_PR_COUNT = 5;
@@ -126,6 +128,23 @@ export function mountHome(root) {
     }。設定から書き出せます ›</a>`;
   }
 
+  // 自動メニュー作成で保存したプログラム
+  function programHtml(state) {
+    const p = state.program;
+    if (!p) {
+      return `<section class="card"><h2>プログラム</h2>
+        <p class="hint">目的・回数・使える器具などを選ぶと、数週間ぶんのメニューを自動で組み立てます。</p>
+        <button type="button" class="btn-primary wide first" data-action="program-new">メニューを自動で作る</button>
+      </section>`;
+    }
+    const c = p.config;
+    return `<section class="card"><h2>プログラム</h2>
+      <p class="prog-summary"><b>${esc(p.name)}</b><span>${GOALS[c.goal]} ・ 1回${c.minutes}分${c.run.perWeek ? ` ・ ラン週${c.run.perWeek}回` : ''}${p.createdAt ? ` ・ ${formatShortDate(p.createdAt)}作成` : ''}</span></p>
+      <button type="button" class="btn-primary wide first" data-action="program-view">内容を見る</button>
+      <button type="button" class="btn-ghost wide" data-action="program-new">条件を変えて作り直す</button>
+    </section>`;
+  }
+
   function render() {
     const state = getState();
     const today = toDateStr(new Date());
@@ -133,6 +152,7 @@ export function mountHome(root) {
       <header class="page-head"><h1>ホーム</h1><span class="page-date">${formatDateJa(today)}</span></header>
       ${backupHtml(state, today)}
       ${summaryHtml(state, today)}
+      ${programHtml(state)}
       <section class="card"><h2>インターバルタイマー</h2>${timerHtml()}</section>
       ${suggestHtml(state, today)}
       ${prHtml(state)}`;
@@ -158,6 +178,12 @@ export function mountHome(root) {
         render();
         break;
       }
+      case 'program-new':
+        openProgram({ onChange: render });
+        break;
+      case 'program-view':
+        openProgram({ view: true, onChange: render });
+        break;
       case 'input':
         openEntryForm({ date: ui.target, exerciseId: s.exercise.id, onChange: render });
         break;
