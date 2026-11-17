@@ -9,11 +9,19 @@ import { mountSettings } from './views/settings.js';
 import { initTheme } from './ui/theme.js';
 import { initTimer, refreshTimers } from './ui/timer.js';
 import { toast } from './ui/util.js';
+import { resumeWorkout, pendingWorkout } from './views/workout.js';
+import { checkMissed } from './views/reschedule.js';
+import { syncInjuryAdjustments } from './views/injury.js';
 
 const loaded = initStore();
 await loadGuides();
 syncCatalog();
 window.Chart.defaults.font.family = "'Noto Sans JP', sans-serif";
+
+// 過去の未実施の予定を振り替える(設定が自動のとき。結果はホームのバナーに出る)
+checkMissed();
+// 痛み・ケガの記録に合わせて、今日以降の予定を調整する(治ったあとの戻し方は日ごとに変わる)
+syncInjuryAdjustments();
 
 const views = {
   home: mountHome(document.getElementById('view-home')),
@@ -28,6 +36,7 @@ let shown = null;
 
 function show(name) {
   if (!views[name]) name = 'home';
+  syncInjuryAdjustments(); // 日付が変わると調整(回復中の重さ)も変わる
   for (const key of Object.keys(views)) {
     document.getElementById(`view-${key}`).hidden = key !== name;
   }
@@ -48,6 +57,9 @@ show(location.hash.slice(1));
 
 // グラフの文字は読み込み前のフォントで描かれるので、読み込み後に描き直す
 document.fonts?.ready.then(() => show(location.hash.slice(1)));
+
+// トレーニングの途中でアプリを閉じていたら、続きから開く(しばらく前のものはホームの案内から再開する)
+if (pendingWorkout()?.recent) resumeWorkout({ onChange: () => shown && views[shown].render() });
 
 // 保存データを変換したとき・新しい版のデータを読んだときは知らせる
 if (loaded.migratedFrom !== null) toast('データを新しい形に変換しました(変換前の状態は自動バックアップに残しています)');

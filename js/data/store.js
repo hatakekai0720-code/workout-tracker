@@ -27,7 +27,7 @@ function defaultState() {
   return {
     schemaVersion: SCHEMA_VERSION,
     profile: { heightCm: null, targetWeightKg: null },
-    settings: { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: null, ownedEquipment: null, timeStepMin: 60, dayStart: '06:00', dayEnd: '23:00' },
+    settings: { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: null, ownedEquipment: null, timeStepMin: 60, dayStart: '06:00', dayEnd: '23:00', restSec: 90, autoReschedule: 'auto' },
     exercises: [
       ex('ex_squat', 'ダンベルスクワット', 'strength', 'legs', 'weighted'),
       ex('ex_row', 'ロウ', 'strength', 'back', 'weighted'),
@@ -45,6 +45,7 @@ function defaultState() {
       { id: 'tpl_late', title: '遅番', kind: 'work', start: '17:00', end: '22:00' },
     ],
     terms: [],
+    injuries: [], // 痛み・ケガの記録。形は js/logic/injury.js を参照
     program: null, // 自動メニュー作成で保存したプログラム(1つだけ)。形は js/program.js を参照
   };
 }
@@ -252,6 +253,116 @@ export function removeProgramEntries(programId) {
   state.entries = state.entries.filter((e) => !(e.programId === programId && e.status === 'planned'));
   save();
   return before - state.entries.length;
+}
+
+// トレーニング中モードの結果を書き込む(js/logic/workout.js の finishWorkout の saves)。
+// entryId のあるものは更新し、ないもの(途中で入れ替えた種目)は元の予定の日時・プログラムの印を写して足す。
+// 返り値: 書き込んだ記録の id の集合
+export function applyWorkoutSaves(saves) {
+  const ids = new Set();
+  for (const s of saves) {
+    if (s.entryId) {
+      const e = state.entries.find((x) => x.id === s.entryId);
+      if (!e) continue;
+      Object.assign(e, s.patch);
+      ids.add(e.id);
+      continue;
+    }
+    const origin = state.entries.find((x) => x.id === s.originEntryId);
+    const { id, actual, rpe, memo, swappedFrom, doneAt, ...keep } = origin || {};
+    const added = { ...keep, date: origin?.date, memo: '', ...s.patch, exerciseId: s.exerciseId, id: newId() };
+    state.entries.push(added);
+    ids.add(added.id);
+  }
+  save();
+  return ids;
+}
+
+// ---- 痛み・ケガ(js/logic/injury.js) ----
+
+export function saveInjury(inj) {
+  const list = state.injuries || [];
+  const i = list.findIndex((x) => x.id === inj.id);
+  if (i >= 0) list[i] = inj;
+  else list.push({ ...inj, id: inj.id || makeId('inj') });
+  state.injuries = list;
+  save();
+}
+
+export function deleteInjury(id) {
+  state.injuries = (state.injuries || []).filter((x) => x.id !== id);
+  save();
+}
+
+// 記録の項目をまとめて書き換える。changes: [{ id, set: { 項目: 値 }, unset: [項目] }]
+export function patchEntries(changes) {
+  if (!changes.length) return;
+  for (const c of changes) {
+    const e = state.entries.find((x) => x.id === c.id);
+    if (!e) continue;
+    Object.assign(e, c.set);
+    for (const k of c.unset) delete e[k];
+  }
+  save();
+}
+
+// ---- 振り替え(js/logic/reschedule.js) ----
+
+// 1回ぶんずつ日時を動かす。moves: [{ sessionKey, fromDate, toDate, toTime, durationMin }](元に戻すときは from/to を入れ替えて渡す)
+export function applySessionMoves(moves) {
+  for (const m of moves) {
+    for (const e of state.entries) {
+      if (e.sessionKey !== m.sessionKey || e.date !== m.fromDate || e.status !== 'planned') continue;
+      e.date = m.toDate;
+      if (m.toTime) {
+        e.time = m.toTime;
+        if (m.durationMin) e.durationMin = m.durationMin;
+      } else {
+        delete e.time;
+        delete e.durationMin;
+      }
+    }
+  }
+  save();
+}
+
+// 未実施の予定を「休んだ(sick)」「スキップ(skip)」にする
+export function markSkipped(ids, reason) {
+  const set = new Set(ids);
+  for (const e of state.entries) {
+    if (!set.has(e.id) || e.status !== 'planned') continue;
+    e.status = 'skipped';
+    e.skipReason = reason;
+  }
+  save();
+}
+
+// 予定を軽くする。元の予定は basePlan に残す(すでに軽くしてあれば、元の予定は最初のまま)。
+// changes: [{ id, plan }]。返り値: 変えた記録の id
+export function adjustPlans(changes, reason) {
+  const ids = [];
+  for (const c of changes) {
+    const e = state.entries.find((x) => x.id === c.id);
+    if (!e || e.status !== 'planned') continue;
+    e.basePlan ??= e.plan;
+    e.plan = c.plan;
+    e.adjustReason = reason;
+    ids.push(e.id);
+  }
+  save();
+  return ids;
+}
+
+// 軽くした予定を元に戻す
+export function restorePlans(ids) {
+  const set = new Set(ids);
+  for (const e of state.entries) {
+    if (!set.has(e.id) || !e.basePlan) continue;
+    e.plan = e.basePlan;
+    delete e.basePlan;
+    delete e.adjustReason;
+  }
+  save();
 }
 
 // プログラムの1回ぶん(同じ sessionKey で同じ日の記録)を、まとめて別の日時に動かす

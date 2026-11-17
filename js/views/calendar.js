@@ -17,6 +17,7 @@ import {
 } from '../logic/schedule.js';
 import { timelineHtml, attachResize, minuteAt } from './timeline.js';
 import { openEntryForm } from './entry.js';
+import { startWorkoutFor } from './workout.js';
 import { openEventForm } from './event.js';
 import { openTermForm } from './term.js';
 import { esc, toast } from '../ui/util.js';
@@ -54,6 +55,8 @@ export function mountCalendar(root) {
     } else selectDate(addDays(ui.selected, ui.view === 'week' ? 7 * dir : dir));
   }
 
+  const ADJUST_LABELS = { return: '休み明けで軽め', restart: '再開プランで軽め', pain: '痛みに合わせて調整', recover: '回復中で軽め' };
+
   function dots(entries) {
     const shown = entries.slice(0, MAX_DOTS).map((e) => {
       const kind = getExercise(e.exerciseId)?.kind === 'run' ? 'run' : 'strength';
@@ -85,10 +88,11 @@ export function mountCalendar(root) {
         if (key && key !== lastKey) head = sessionHead(e, range, sorted.filter((x) => x.sessionKey === e.sessionKey && (x.time || '') === (e.time || '')));
         lastKey = key;
         return `${head}<li><button type="button" class="entry ${e.status} ${key ? 'in-session' : ''}" data-action="edit" data-id="${e.id}">
-          <span class="entry-mark">${done ? '✓' : ''}</span>
+          <span class="entry-mark">${done ? '✓' : e.status === 'skipped' ? '－' : ''}</span>
           <span class="entry-main">
             <span class="entry-name">${esc(ex.name)}${tag}</span>
-            <span class="entry-sub">${range && !key ? `${range} ・ ` : ''}${done ? '' : '予定 '}${esc(summary)}</span>
+            <span class="entry-sub">${range && !key ? `${range} ・ ` : ''}${done ? '' : e.status === 'skipped' ? ({ sick: '休んだ ', pain: '痛みのため外す ' }[e.skipReason] || 'スキップ ') : '予定 '}${esc(summary)}</span>
+            ${e.adjustReason && e.basePlan && !done ? `<span class="entry-sub adjusted">${ADJUST_LABELS[e.adjustReason] || '軽め'}(元の予定: ${e.swappedFrom && getExercise(e.swappedFrom) ? `${esc(getExercise(e.swappedFrom).name)} ` : ''}${esc(describePlan(e.swappedFrom ? getExercise(e.swappedFrom) || ex : ex, e.basePlan).replace(/^0kg × /, ''))})</span>` : ''}
             ${e.memo && !done ? `<span class="entry-sub">${esc(e.memo)}</span>` : ''}
             ${pr ? `<span class="entry-pr">🏆 自己ベスト ${pr.join('・')}</span>` : ''}
           </span>
@@ -264,6 +268,7 @@ export function mountCalendar(root) {
         <h2>${formatDateJa(ui.selected)}</h2>
         <h3>トレーニング</h3>
         ${entryList(byDate.get(ui.selected) || [], prByEntry)}
+        ${ui.selected === today && (byDate.get(today) || []).some((e) => e.status === 'planned') ? '<button type="button" class="btn-primary wide" data-action="wo-start">▶ 今日のトレーニングを開始</button>' : ''}
         <button type="button" class="btn-primary wide" data-action="add">＋ メニューを追加</button>
         <h3>予定(学校・バイトなど)</h3>
         ${eventList(expandEvents(events, ui.selected, ui.selected))}
@@ -316,6 +321,11 @@ export function mountCalendar(root) {
       return;
     }
     switch (t.dataset.action) {
+      case 'wo-start': {
+        const today = toDateStr(new Date());
+        startWorkoutFor(getState().entries.filter((e) => e.date === today && e.status === 'planned').map((e) => e.id), { onChange: render });
+        break;
+      }
       case 'prev':
         shift(-1);
         break;

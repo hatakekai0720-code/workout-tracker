@@ -18,8 +18,9 @@ import { BACKUP_REASONS, AUTO_BACKUP_MAX } from '../data/autobackup.js';
 import { toDateStr, formatDateJa } from '../logic/dates.js';
 import { parseBackup } from '../data/backup.js';
 import { applyTheme } from '../ui/theme.js';
-import { musclesOf, syncCatalog, guideFor, isAvailable, ownedEquipment, CATEGORIES, EQUIPMENT } from '../data/guides.js';
+import { musclesOf, stressOf, syncCatalog, guideFor, isAvailable, ownedEquipment, CATEGORIES, EQUIPMENT } from '../data/guides.js';
 import { MUSCLES, MUSCLE_KEYS, cleanMuscles } from '../logic/muscles.js';
+import { JOINTS } from '../logic/injury.js';
 import { EVENT_KINDS, timeOptions } from '../logic/schedule.js';
 import { esc, toast, APP_VERSION } from '../ui/util.js';
 
@@ -79,6 +80,17 @@ export function mountSettings(root) {
           <input type="number" inputmode="numeric" step="1" min="${MIN_TIMER}" max="${MAX_TIMER}"
             data-field="timerCustomSec" value="${settings.timerCustomSec ?? ''}"></label>
         <p class="error" role="alert" data-timer-error hidden></p>
+        <label class="field"><span>トレーニング中モードの休憩(プログラムで決めていない種目)</span><select data-field="restSec">
+          ${[30, 45, 60, 90, 120, 150, 180].map((n) => `<option value="${n}" ${n === (settings.restSec || 90) ? 'selected' : ''}>${n}秒</option>`).join('')}
+        </select></label>
+      </section>
+
+      <section class="card">
+        <h2>サボった日の振り替え</h2>
+        <div class="segmented fill" role="group" aria-label="振り替え">
+          ${[['auto', '自動'], ['manual', '手動']].map(([k, v]) => `<button type="button" data-action="auto-reschedule" data-key="${k}" aria-pressed="${(settings.autoReschedule || 'auto') === k}">${v}</button>`).join('')}
+        </div>
+        <p class="hint after">自動: アプリを開いたときに、過去の未実施のプログラムを次の空き時間へずらします(7日以上空いたときは確認します)。手動: ホームに一覧を出し、自分で選びます。</p>
       </section>
 
       <section class="card">
@@ -301,6 +313,9 @@ export function mountSettings(root) {
             return `<button type="button" class="chip ${state}" data-muscle="${k}" aria-pressed="${state !== ''}">${MUSCLES[k]}${mark}</button>`;
           }).join('')}</div>
         </div>
+        <div class="field"><span>負担がかかる関節(痛みの記録で使います。タップで選ぶ)</span>
+          <div class="chip-picker">${Object.entries(JOINTS).map(([k, v]) => `<button type="button" class="chip ${x.stress.includes(k) ? 'main' : ''}" data-joint="${k}" aria-pressed="${x.stress.includes(k)}">${v}</button>`).join('')}</div>
+        </div>
         ${used ? '<p class="hint">すでに記録があるため、種類と記録のしかたは変更できません。</p>' : ''}
         <p class="error" role="alert" hidden></p>
         ${
@@ -319,8 +334,8 @@ export function mountSettings(root) {
 
   function openDialog(id) {
     editing = id
-      ? { ...getExercise(id), muscles: musclesOf(getExercise(id)) }
-      : { id: null, name: '', kind: 'strength', bodyPart: 'chest', loadType: 'weighted', archived: false, muscles: { main: [], sub: [] } };
+      ? { ...getExercise(id), muscles: musclesOf(getExercise(id)), stress: [...stressOf(getExercise(id))] }
+      : { id: null, name: '', kind: 'strength', bodyPart: 'chest', loadType: 'weighted', archived: false, muscles: { main: [], sub: [] }, stress: [] };
     renderDialog();
     dlg.showModal();
   }
@@ -351,6 +366,13 @@ export function mountSettings(root) {
   });
 
   dlg.addEventListener('click', (ev) => {
+    const joint = ev.target.closest('[data-joint]');
+    if (joint) {
+      const k = joint.dataset.joint;
+      editing.stress = editing.stress.includes(k) ? editing.stress.filter((j) => j !== k) : [...editing.stress, k];
+      renderDialog();
+      return;
+    }
     const chip = ev.target.closest('[data-muscle]');
     if (chip) {
       // なし → メイン → サブ → なし
@@ -386,11 +408,23 @@ export function mountSettings(root) {
     }
   });
 
+  // カタログと同じ関節なら保存しない(カタログの更新がそのまま反映されるように)
+  function stressField() {
+    const catalog = guideFor(editing)?.stress;
+    const same = catalog && catalog.length === editing.stress.length && catalog.every((k) => editing.stress.includes(k));
+    if (same) {
+      delete editing.stress;
+      return {};
+    }
+    return { stress: Object.keys(JOINTS).filter((k) => editing.stress.includes(k)) };
+  }
+
   dlg.addEventListener('submit', (ev) => {
     ev.preventDefault();
     const name = editing.name.trim();
     if (!name) return showDialogError('種目名を入力してください');
     const run = editing.kind === 'run';
+    const stress = stressField(); // カタログと同じなら editing から消す(先に呼ぶ)
     // editing は元の種目を写したものなので、メモや自分で書いた解説もそのまま残る
     saveExercise({
       ...editing,
@@ -398,6 +432,7 @@ export function mountSettings(root) {
       bodyPart: run ? null : editing.bodyPart || 'chest',
       loadType: run ? null : editing.loadType || 'weighted',
       muscles: cleanMuscles(editing.muscles),
+      ...stress,
     });
     closeDialog();
   });
@@ -427,6 +462,11 @@ export function mountSettings(root) {
         break;
       case 'update-app':
         updateApp(t);
+        break;
+      case 'auto-reschedule':
+        setSettings({ autoReschedule: t.dataset.key });
+        toast(t.dataset.key === 'auto' ? '振り替えを自動にしました' : '振り替えを手動にしました');
+        render();
         break;
       case 'theme':
         setSettings({ theme: t.dataset.key });
@@ -473,6 +513,9 @@ export function mountSettings(root) {
       const file = t.files[0];
       t.value = '';
       if (file) importBackup(file);
+    } else if (t.dataset.field === 'restSec') {
+      setSettings({ restSec: Number(t.value) });
+      toast(`休憩を${t.value}秒にしました`);
     } else if (t.dataset.field === 'timerCustomSec') {
       const errorEl = root.querySelector('[data-timer-error]');
       const raw = t.value.trim();

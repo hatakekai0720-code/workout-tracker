@@ -656,3 +656,88 @@ select:disabled { opacity: .55; }
 }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 @media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+
+/* ---- トレーニング中モード(全画面) ---- */
+.workout-dialog { max-width: 520px; }
+.sheet.workout { overflow: hidden; }
+.wo-head h2 { font-size: 15px; }
+.wo-elapsed { flex: none; min-width: 84px; font-size: 12px; color: var(--title-text); font-variant-numeric: tabular-nums; }
+.wo-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 12px; }
+.wo-progress { margin: 0 0 6px; font-size: 12px; color: var(--muted); }
+.wo-name {
+  display: flex; flex-direction: column; align-items: flex-start; width: 100%;
+  padding: 4px 0; border: 0; background: transparent; color: var(--text);
+  font-size: 26px; font-weight: 700; line-height: 1.25; text-align: left;
+}
+.wo-name small { font-size: 12px; font-weight: 500; color: var(--accent); }
+.wo-setno { margin: 4px 0 0; font-size: 17px; }
+.wo-setno b { font-size: 32px; font-variant-numeric: tabular-nums; }
+.wo-values { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.wo-stepper {
+  display: grid; grid-template-columns: 64px 1fr 64px; grid-template-rows: auto auto; align-items: center;
+  padding: 6px; border: 1px solid var(--field-line); background: var(--surface);
+}
+.wo-step-label { grid-column: 1 / -1; font-size: 12px; color: var(--muted); text-align: center; }
+.wo-value { text-align: center; font-size: 40px; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.wo-value small { margin-left: 3px; font-size: 16px; font-weight: 500; color: var(--muted); }
+.wo-pm {
+  width: 64px; height: 64px; padding: 0;
+  border: 1px solid var(--btn-line); border-radius: 6px; background: var(--btn); color: var(--text);
+  font-size: 30px; line-height: 1;
+}
+.wo-pm:active { filter: brightness(.88); }
+.wo-sets { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 8px 0 0; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.wo-rest {
+  display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 2px 10px;
+  margin-top: 10px; padding: 8px 10px; border: 2px solid var(--run); background: var(--soft);
+}
+.wo-rest-label { font-size: 13px; font-weight: 700; }
+.wo-rest-time { font-size: 34px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.wo-rest-bar { grid-column: 1 / -1; }
+.wo-foot {
+  flex: none; display: flex; flex-direction: column; gap: 8px;
+  padding: 10px 12px calc(env(safe-area-inset-bottom) + 12px);
+  border-top: 1px solid var(--line); background: var(--window);
+}
+.wo-row { display: flex; gap: 8px; }
+.wo-row > button { flex: 1; min-height: 46px; }
+.wo-done { width: 100%; min-height: 64px; font-size: 20px; }
+.wo-ask { margin: 0 0 8px; font-size: 16px; font-weight: 700; text-align: center; }
+.wo-rir { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.wo-rir button { min-height: 58px; font-size: 22px; font-weight: 700; }
+.wo-rir button:last-child { font-size: 15px; font-weight: 500; }
+.wo-end-row { display: flex; align-items: center; gap: 8px; padding: 8px; }
+.wo-body .tiles { margin-bottom: 4px; }
+.today-group + .today-group { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.wo-start { min-height: 52px; font-size: 17px; margin-top: 8px; }
+.dot.skipped { border-style: dashed; opacity: .55; }
+.entry.skipped .entry-name { color: var(--muted); text-decoration: line-through; }
+.entry-sub.adjusted { color: var(--run); }
+
+/* ---- サボった日の振り替え(ホームのバナー) ---- */
+.reschedule { border-color: var(--hot); }
+.rs-box + .rs-box { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.rs-title { margin: 0 0 6px; font-weight: 700; }
+.rs-list { list-style: none; margin: 0 0 8px; padding: 0; border: 1px solid var(--field-line); background: var(--surface); }
+.rs-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 7px 8px; }
+.rs-list li + li { border-top: 1px solid var(--line); }
+.rs-what { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; font-size: 13px; }
+.rs-what span { color: var(--muted); }
+.rs-what span b { color: var(--text); }
+.rs-warn { font-size: 12px; color: var(--danger) !important; }
+.rs-btns { display: flex; gap: 6px; margin-left: auto; }
+.rs-btns button { min-height: 38px; padding: 0 10px; font-size: 13px; }
+.rs-chosen { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--run); }
+.mq-mark { font-size: 13px; pointer-events: none; }
+
+/* ---- 痛み・ケガ ---- */
+.medical {
+  margin: 0 0 10px; padding: 8px 10px;
+  border: 1px solid var(--danger); background: var(--soft); font-size: 13px; font-weight: 700;
+}
+.injury-btn { margin: 8px 0 4px; }
+.injury-check .check-row + .check-row { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.injury-check .rs-title small { margin-left: 6px; font-size: 12px; font-weight: 400; color: var(--muted); }
+.check-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.check-btns button { min-height: 44px; padding: 0 4px; font-size: 14px; }
+.hint-link { display: inline-block; margin-top: 8px; font-size: 13px; }

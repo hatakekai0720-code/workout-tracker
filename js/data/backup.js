@@ -3,6 +3,8 @@ import { BODY_PARTS } from './store.js';
 import { cleanMuscles } from '../logic/muscles.js';
 import { CUSTOM_FIELDS, EQUIPMENT } from './guides.js';
 import { GOALS, TIMES_OF_DAY, SLOT_KEYS } from '../logic/program.js';
+import { JOINTS, SIDES, LEVELS } from '../logic/injury.js';
+import { MUSCLES } from '../logic/muscles.js';
 import { SCHEMA_VERSION, migrate } from './migrate.js';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -31,6 +33,7 @@ function exercise(x, seen) {
   // 任意の項目: 効く筋肉、自分用メモ、自分で書いた解説
   if (typeof x.guideId === 'string' && ID.test(x.guideId)) base.guideId = x.guideId;
   if (isObj(x.muscles)) base.muscles = cleanMuscles(x.muscles);
+  if (Array.isArray(x.stress)) base.stress = [...new Set(x.stress)].filter((k) => k in JOINTS); // 負担がかかる関節
   if (typeof x.note === 'string' && x.note) base.note = x.note.slice(0, MAX_TEXT);
   if (isObj(x.customGuide)) {
     const custom = {};
@@ -51,7 +54,7 @@ function entry(e, exById, seen) {
   seen.add(e.id);
   const ex = exById.get(e.exerciseId);
   if (!ex) fail('種目マスタにない種目の記録が含まれています');
-  if (e.status !== 'planned' && e.status !== 'done') fail('記録の状態が正しくありません');
+  if (!['planned', 'done', 'skipped'].includes(e.status)) fail('記録の状態が正しくありません'); // skipped: 休んだ・スキップした予定
   const done = e.status === 'done';
   const bad = () => fail(`${e.date} の「${ex.name}」の記録が正しくありません`);
   let plan;
@@ -70,13 +73,16 @@ function entry(e, exById, seen) {
     const p = e.plan;
     if (!isObj(p) || !num(p.weightKg) || !int(p.reps, 1) || !int(p.sets, 1)) bad();
     plan = { weightKg: p.weightKg, reps: p.reps, sets: p.sets };
+    if (int(p.restSec, 1) && p.restSec <= 900) plan.restSec = p.restSec; // 任意: 休憩の秒数(プログラムから)
     if (done) {
       const sets = e.actual?.sets;
       if (!Array.isArray(sets) || !sets.length) bad();
       actual = {
         sets: sets.map((s) => {
           if (!isObj(s) || !num(s.weightKg) || !int(s.reps, 0)) bad();
-          return { weightKg: s.weightKg, reps: s.reps };
+          const set = { weightKg: s.weightKg, reps: s.reps };
+          if (int(s.rir, 0) && s.rir <= 4) set.rir = s.rir; // 任意: あと何回できたか
+          return set;
         }),
       };
     }
@@ -98,6 +104,18 @@ function entry(e, exById, seen) {
   if (typeof e.programId === 'string' && ID.test(e.programId)) out.programId = e.programId;
   if (typeof e.sessionKey === 'string' && /^[A-Za-z0-9_:-]{1,80}$/.test(e.sessionKey)) out.sessionKey = e.sessionKey;
   if (typeof e.sessionLabel === 'string' && e.sessionLabel) out.sessionLabel = e.sessionLabel.slice(0, 30);
+  // 振り替えの印: 休んだ/スキップの理由、軽くする前の予定と、軽くした理由
+  if (e.status === 'skipped') out.skipReason = ['sick', 'pain'].includes(e.skipReason) ? e.skipReason : 'skip';
+  if (e.status === 'skipped' && e.skipReason === 'pain' && e.adjustReason === 'pain') out.adjustReason = 'pain'; // 痛みで外した予定
+  if (isObj(e.basePlan) && e.status === 'planned') {
+    const b = e.basePlan;
+    if (ex.kind === 'run' && num(b.distanceKm) && b.distanceKm > 0) out.basePlan = { distanceKm: b.distanceKm, durationSec: num(b.durationSec) && b.durationSec > 0 ? b.durationSec : null };
+    else if (ex.kind !== 'run' && num(b.weightKg) && int(b.reps, 1) && int(b.sets, 1)) out.basePlan = { weightKg: b.weightKg, reps: b.reps, sets: b.sets, ...(int(b.restSec, 1) && b.restSec <= 900 ? { restSec: b.restSec } : {}) };
+    if (out.basePlan && ['return', 'restart', 'pain', 'recover'].includes(e.adjustReason)) out.adjustReason = e.adjustReason;
+  }
+  // トレーニング中モードの印: 完了した時刻、入れ替える前の種目
+  if (typeof e.doneAt === 'string' && !Number.isNaN(Date.parse(e.doneAt))) out.doneAt = e.doneAt.slice(0, 40);
+  if (typeof e.swappedFrom === 'string' && exById.has(e.swappedFrom) && e.swappedFrom !== e.exerciseId) out.swappedFrom = e.swappedFrom;
   return out;
 }
 
@@ -213,6 +231,25 @@ function program(x, exById) {
   };
 }
 
+// 痛み・ケガの記録。壊れたものはその1件だけ捨てる(記録の復元は続ける)。
+function injury(x, seen) {
+  if (!isObj(x) || !ID.test(x.id) || seen.has(x.id) || !(x.part in JOINTS || x.part in MUSCLES) || !DATE.test(x.startDate)) return null;
+  const history = (Array.isArray(x.history) ? x.history : [])
+    .filter((h) => isObj(h) && DATE.test(h.date) && h.level in LEVELS)
+    .map((h) => ({ date: h.date, level: h.level, memo: typeof h.memo === 'string' ? h.memo.slice(0, 1000) : '' }))
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+  if (!history.length) return null;
+  seen.add(x.id);
+  return {
+    id: x.id,
+    part: x.part,
+    side: x.side in SIDES ? x.side : 'both',
+    startDate: x.startDate,
+    healedDate: typeof x.healedDate === 'string' && DATE.test(x.healedDate) ? x.healedDate : null,
+    history,
+  };
+}
+
 const DEFAULT_TEMPLATES = [
   { id: 'tpl_early', title: '早番', kind: 'work', start: '09:00', end: '15:00' },
   { id: 'tpl_late', title: '遅番', kind: 'work', start: '17:00', end: '22:00' },
@@ -274,6 +311,8 @@ export function parseBackup(text, today, { keepLastBackupAt = false } = {}) {
           weightStepKg: num(s.weightStepKg) && s.weightStepKg > 0 ? s.weightStepKg : 2.5,
           // 読み込んだファイル自体が最新のバックアップ
           lastBackupAt: keepLastBackupAt ? (typeof s.lastBackupAt === 'string' && DATE.test(s.lastBackupAt) ? s.lastBackupAt : null) : today,
+          autoReschedule: s.autoReschedule === 'manual' ? 'manual' : 'auto', // サボった日の振り替え
+          restSec: int(s.restSec, 10) && s.restSec <= 600 ? s.restSec : 90, // トレーニング中モードの休憩(既定)
           timeStepMin: [60, 30, 15].includes(s.timeStepMin) ? s.timeStepMin : 60,
           ...dayRange(s),
           // 持っている器具(絞り込みを使っていなければ null)
@@ -286,6 +325,10 @@ export function parseBackup(text, today, { keepLastBackupAt = false } = {}) {
         eventTemplates,
         terms,
         program: program(raw.program, exById),
+        injuries: (() => {
+          const seen = new Set();
+          return (Array.isArray(raw.injuries) ? raw.injuries : []).map((x) => injury(x, seen)).filter(Boolean);
+        })(),
       },
     };
   } catch (err) {

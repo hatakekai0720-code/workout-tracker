@@ -65,10 +65,10 @@ test('壊れた中身は断る', () => {
 
 test('設定の不正な値は既定値に戻す', () => {
   const v = valid();
-  v.settings = { theme: 'pink', timerCustomSec: 2, weightStepKg: 0 };
+  v.settings = { theme: 'pink', timerCustomSec: 2, weightStepKg: 0, restSec: 5000 };
   v.profile = { heightCm: 'tall' };
   const { state } = parse(v);
-  assert.deepEqual(state.settings, { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: '2026-11-15', ownedEquipment: null, timeStepMin: 60, dayStart: '06:00', dayEnd: '23:00' });
+  assert.deepEqual(state.settings, { theme: 'auto', timerPresets: [60, 90, 120], timerCustomSec: null, weightStepKg: 2.5, lastBackupAt: '2026-11-15', ownedEquipment: null, timeStepMin: 60, dayStart: '06:00', dayEnd: '23:00', restSec: 90, autoReschedule: 'auto' });
   assert.deepEqual(state.profile, { heightCm: null, targetWeightKg: null });
 });
 
@@ -197,4 +197,72 @@ test('自動バックアップから戻すときは、最終バックアップ�
   assert.equal(parseBackup(text, '2026-11-15', { keepLastBackupAt: true }).state.settings.lastBackupAt, '2026-01-01');
   const none = { ...valid(), settings: {} };
   assert.equal(parseBackup(JSON.stringify(none), '2026-11-15', { keepLastBackupAt: true }).state.settings.lastBackupAt, null);
+});
+
+test('トレーニング中モードの項目(RIR・休憩・完了時刻・入れ替え前の種目)を復元で残す', () => {
+  const data = valid();
+  data.settings.restSec = 120;
+  data.exercises.push({ id: 'ex_bench', name: 'ベンチ', kind: 'strength', bodyPart: 'chest', loadType: 'weighted', archived: false });
+  data.entries[0] = {
+    ...data.entries[0],
+    plan: { weightKg: 20, reps: 10, sets: 3, restSec: 90 },
+    actual: { sets: [{ weightKg: 20, reps: 10, rir: 2 }, { weightKg: 20, reps: 8, rir: 9 }, { weightKg: 20, reps: 8 }] },
+    doneAt: '2026-11-10T10:00:00.000Z',
+    swappedFrom: 'ex_bench',
+  };
+  const { state } = parse(data);
+  const e = state.entries[0];
+  assert.equal(state.settings.restSec, 120);
+  assert.equal(e.plan.restSec, 90);
+  assert.deepEqual(e.actual.sets, [{ weightKg: 20, reps: 10, rir: 2 }, { weightKg: 20, reps: 8 }, { weightKg: 20, reps: 8 }]); // 範囲外の RIR は捨てる
+  assert.equal(e.doneAt, '2026-11-10T10:00:00.000Z');
+  assert.equal(e.swappedFrom, 'ex_bench');
+  // 古いバックアップ(項目なし)は既定値
+  const old = parse(valid()).state;
+  assert.equal(old.settings.restSec, 90);
+  assert.equal('restSec' in old.entries[0].plan, false);
+  assert.equal('doneAt' in old.entries[0], false);
+});
+
+test('振り替えの項目(休んだ/スキップ・軽くする前の予定・振り替えの設定)を復元で残す', () => {
+  const data = valid();
+  data.settings.autoReschedule = 'manual';
+  data.entries.push(
+    { id: 'e3', date: '2026-11-09', exerciseId: 'ex_squat', status: 'skipped', skipReason: 'sick', plan: { weightKg: 20, reps: 10, sets: 3 }, actual: null },
+    { id: 'e4', date: '2026-11-09', exerciseId: 'ex_squat', status: 'skipped', skipReason: 'what', plan: { weightKg: 20, reps: 10, sets: 3 }, actual: null },
+    { id: 'e5', date: '2026-11-20', exerciseId: 'ex_squat', status: 'planned', plan: { weightKg: 17.5, reps: 10, sets: 2 }, basePlan: { weightKg: 20, reps: 10, sets: 3 }, adjustReason: 'return', actual: null },
+    { id: 'e6', date: '2026-11-21', exerciseId: 'ex_run', status: 'planned', plan: { distanceKm: 4, durationSec: null }, basePlan: { distanceKm: 'x' }, adjustReason: 'return', actual: null },
+  );
+  const { state, error } = parse(data);
+  assert.equal(error, undefined);
+  assert.equal(state.settings.autoReschedule, 'manual');
+  const [e3, e4, e5, e6] = state.entries.slice(2);
+  assert.deepEqual([e3.status, e3.skipReason, e4.skipReason], ['skipped', 'sick', 'skip']);
+  assert.deepEqual(e5.basePlan, { weightKg: 20, reps: 10, sets: 3 });
+  assert.equal(e5.adjustReason, 'return');
+  assert.equal('basePlan' in e6 || 'adjustReason' in e6, false); // 壊れた元の予定は捨てる
+  assert.equal(parse(valid()).state.settings.autoReschedule, 'auto');
+  assert.ok(parse({ ...valid(), entries: [{ ...valid().entries[0], status: 'gone' }] }).error);
+});
+
+test('痛み・ケガの記録と、痛みで調整した予定・種目の負担がかかる関節を復元で残す', () => {
+  const data = valid();
+  data.exercises[0].stress = ['knee', 'nose', 'knee'];
+  data.injuries = [
+    { id: 'i1', part: 'shoulder', side: 'right', startDate: '2026-11-01', healedDate: null, history: [{ date: '2026-11-04', level: 'moderate', memo: 'm' }, { date: '2026-11-01', level: 'mild' }, { date: 'x', level: 'mild' }] },
+    { id: 'i2', part: 'nose', side: 'left', startDate: '2026-11-01', history: [{ date: '2026-11-01', level: 'mild' }] },
+    { id: 'i3', part: 'chest', side: 'up', startDate: '2026-11-01', healedDate: '2026-11-10', history: [{ date: '2026-11-01', level: 'severe' }] },
+    { id: 'i4', part: 'chest', side: 'left', startDate: '2026-11-01', history: [] },
+  ];
+  data.entries.push({ id: 'e9', date: '2026-11-20', exerciseId: 'ex_squat', status: 'skipped', skipReason: 'pain', adjustReason: 'pain', plan: { weightKg: 20, reps: 10, sets: 3 }, actual: null });
+  const { state, error } = parse(data);
+  assert.equal(error, undefined);
+  assert.deepEqual(state.exercises[0].stress, ['knee']);
+  assert.deepEqual(state.injuries.map((i) => i.id), ['i1', 'i3']); // 壊れたものだけ捨てる
+  assert.deepEqual(state.injuries[0].history, [{ date: '2026-11-01', level: 'mild', memo: '' }, { date: '2026-11-04', level: 'moderate', memo: 'm' }]);
+  assert.equal(state.injuries[1].side, 'both');
+  assert.equal(state.injuries[1].healedDate, '2026-11-10');
+  const e9 = state.entries.at(-1);
+  assert.deepEqual([e9.status, e9.skipReason, e9.adjustReason], ['skipped', 'pain', 'pain']);
+  assert.deepEqual(parse(valid()).state.injuries, []);
 });

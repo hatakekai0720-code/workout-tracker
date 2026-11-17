@@ -18,6 +18,8 @@ import { createMannequin } from '../mannequin/index.js';
 import { weeklyMuscleSets, heatColor, exercisesForMuscle, recoveryStatus, HEAT_LEGEND, RECOVERY } from '../logic/musclemap.js';
 import { toDateStr } from '../logic/dates.js';
 import { openGuide } from './guide.js';
+import { openInjuryForm, injuryListHtml, activeInjuries } from './injury.js';
+import { activeMarks } from '../logic/injury.js';
 import { esc } from '../ui/util.js';
 
 const VIEW_BUTTONS = [
@@ -93,6 +95,7 @@ export function mountExercises(root) {
             ? `最後に鍛えてから約 ${Math.round(recovery[selected].hours)} 時間 → ${RECOVERY[recovery[selected].status].label}`
             : 'この1週間、メインでは鍛えていません'
         }</p>
+        <button type="button" class="btn-ghost wide injury-btn" data-action="injury-new">⚠️ この部位の痛みを記録</button>
         <h4>メインで効く種目</h4>
         ${main.length ? muscleRows(main) : '<p class="empty">該当する種目はありません</p>'}
         <h4>サブで効く種目</h4>
@@ -119,6 +122,7 @@ export function mountExercises(root) {
     if (mapMode === 'sets') for (const [key, w] of Object.entries(weekly)) colors[key] = heatColor(w.score);
     else for (const [key, r] of Object.entries(recovery)) colors[key] = RECOVERY[r.status].color;
     mannequin?.setColors(colors);
+    mannequin?.setMarkers?.(activeMarks(activeInjuries()));
     root.querySelector('[data-legend]').innerHTML =
       mapMode === 'sets'
         ? `<span>今週のセット数</span><span>少</span><i style="background: linear-gradient(90deg, ${HEAT_LEGEND.from}, ${HEAT_LEGEND.to})"></i><span>多(${HEAT_LEGEND.max}以上)</span>`
@@ -189,6 +193,7 @@ export function mountExercises(root) {
       .map((g) => `<h3>${g.label}<small>${g.items.length}種目</small></h3><ul class="entry-list">${g.items.map(row).join('')}</ul>`)
       .join('');
     root.querySelector('[data-list]').innerHTML = `
+      ${injuryListHtml()}
       <section class="card">
         <h2>種目の解説<small>${shown.length}種目</small></h2>
         <div class="row filters">
@@ -227,6 +232,15 @@ export function mountExercises(root) {
     switch (t.dataset.action) {
       case 'guide':
         openGuide(t.dataset.id, render);
+        break;
+      case 'injury-new':
+        openInjuryForm({ muscle: selected, onChange: render });
+        break;
+      case 'injury-open':
+        openInjuryForm({ injuryId: t.dataset.id, onChange: render });
+        break;
+      case 'injury-joint':
+        openInjuryForm({ onChange: render });
         break;
       case 'view':
         mannequin?.setView(t.dataset.key);

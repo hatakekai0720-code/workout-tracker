@@ -120,7 +120,7 @@ export function applyPlacement() {
     }
     for (const x of weeks[it.week].sessions[it.index].items) {
       const unknown = getExercise(x.exerciseId).loadType === 'weighted' && x.weightKg === null;
-      list.push({ ...base, exerciseId: x.exerciseId, plan: { weightKg: x.weightKg ?? 0, reps: x.reps, sets: x.sets }, memo: unknown ? '重さは初回に決める' : '' });
+      list.push({ ...base, exerciseId: x.exerciseId, plan: { weightKg: x.weightKg ?? 0, reps: x.reps, sets: x.sets, ...(x.restSec > 0 ? { restSec: x.restSec } : {}) }, memo: unknown ? '重さは初回に決める' : '' });
     }
   }
   if (!list.length) return toast('配置する回がありません');

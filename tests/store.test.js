@@ -109,3 +109,53 @@ test('復元の前に、今のデータを自動バックアップに残せる',
   replaceState({ ...getState(), entries: [] });
   assert.equal(JSON.parse(readAutoBackupText(b.key)).entries.length, 2);
 });
+
+test('applyWorkoutSaves: 予定を実施済みにし、途中で入れ替えた種目は元の予定を写して足す', async () => {
+  const { applyWorkoutSaves } = await import('../js/data/store.js');
+  fresh(saved({
+    exercises: [
+      { id: 'a', name: 'A', kind: 'strength', bodyPart: 'chest', loadType: 'weighted', archived: false },
+      { id: 'b', name: 'B', kind: 'strength', bodyPart: 'chest', loadType: 'weighted', archived: false },
+    ],
+    entries: [{ id: 'e1', date: '2026-11-16', time: '18:00', exerciseId: 'a', status: 'planned', plan: { weightKg: 20, reps: 10, sets: 3 }, actual: null, memo: 'm', programId: 'p1', sessionKey: 'p1:0:s0' }],
+  }));
+  initStore({ nowMs: at(16) });
+  const ids = applyWorkoutSaves([
+    { entryId: 'e1', exerciseId: 'a', patch: { status: 'done', actual: { sets: [{ weightKg: 20, reps: 10, rir: 2 }] }, doneAt: 'x', plan: { weightKg: 20, reps: 10, sets: 1 } } },
+    { entryId: null, originEntryId: 'e1', exerciseId: 'b', patch: { status: 'done', exerciseId: 'b', swappedFrom: 'a', plan: { weightKg: 10, reps: 10, sets: 2 }, actual: { sets: [{ weightKg: 10, reps: 10 }] }, doneAt: 'x' } },
+    { entryId: 'gone', exerciseId: 'a', patch: { status: 'done' } },
+  ]);
+  const s = getState();
+  assert.equal(ids.size, 2);
+  assert.equal(s.entries[0].status, 'done');
+  const added = s.entries[1];
+  assert.equal(added.exerciseId, 'b');
+  assert.equal(added.sessionKey, 'p1:0:s0');
+  assert.equal(added.time, '18:00');
+  assert.equal(added.date, '2026-11-16');
+  assert.equal(added.memo, '');
+  assert.notEqual(added.id, 'e1');
+  assert.deepEqual(JSON.parse(localStorage.getItem(KEY)).entries.length, 2);
+});
+
+test('振り替え: 1回ぶんを動かして戻す、休んだ/スキップ、軽くして戻す', async () => {
+  const { applySessionMoves, markSkipped, adjustPlans, restorePlans } = await import('../js/data/store.js');
+  const ex = [{ id: 'a', name: 'A', kind: 'strength', bodyPart: 'chest', loadType: 'weighted', archived: false }];
+  const e = (id, date, extra = {}) => ({ id, date, exerciseId: 'a', status: 'planned', plan: { weightKg: 20, reps: 10, sets: 3 }, actual: null, memo: '', ...extra });
+  fresh(saved({ exercises: ex, entries: [e('s1', '2026-11-13', { sessionKey: 'p:0:s0', time: '19:00', durationMin: 60 }), e('s2', '2026-11-13', { sessionKey: 'p:0:s0', time: '19:00', durationMin: 60 }), e('m', '2026-11-12')] }));
+  initStore({ nowMs: at(16) });
+  applySessionMoves([{ sessionKey: 'p:0:s0', fromDate: '2026-11-13', toDate: '2026-11-16', toTime: '20:00', durationMin: 45 }]);
+  assert.deepEqual(getState().entries.slice(0, 2).map((x) => [x.date, x.time, x.durationMin]), [['2026-11-16', '20:00', 45], ['2026-11-16', '20:00', 45]]);
+  applySessionMoves([{ sessionKey: 'p:0:s0', fromDate: '2026-11-16', toDate: '2026-11-13', toTime: null }]);
+  assert.equal('time' in getState().entries[0], false);
+  markSkipped(['m'], 'sick');
+  assert.deepEqual([getState().entries[2].status, getState().entries[2].skipReason], ['skipped', 'sick']);
+  const ids = adjustPlans([{ id: 's1', plan: { weightKg: 17.5, reps: 10, sets: 2 } }, { id: 'm', plan: {} }], 'return');
+  assert.deepEqual(ids, ['s1']); // 予定でないものは変えない
+  adjustPlans([{ id: 's1', plan: { weightKg: 15, reps: 10, sets: 2 } }], 'restart');
+  assert.deepEqual(getState().entries[0].basePlan, { weightKg: 20, reps: 10, sets: 3 }); // 元の予定は最初のまま
+  restorePlans(['s1']);
+  const s1 = getState().entries[0];
+  assert.deepEqual(s1.plan, { weightKg: 20, reps: 10, sets: 3 });
+  assert.equal('basePlan' in s1 || 'adjustReason' in s1, false);
+});

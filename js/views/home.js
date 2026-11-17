@@ -8,6 +8,10 @@ import { buildSuggestions, defaultTargetDate } from '../logic/suggest.js';
 import { isAvailable } from '../data/guides.js';
 import { openEntryForm } from './entry.js';
 import { openProgram } from './program.js';
+import { startWorkoutFor, resumeWorkout, discardWorkout, pendingWorkout } from './workout.js';
+import { groupToday } from '../logic/workout.js';
+import { checkMissed, rescheduleBannerHtml, handleRescheduleAction } from './reschedule.js';
+import { injuryCheckHtml, handleInjuryAction, injuryDecision, scaleForInjury, syncInjuryAdjustments } from './injury.js';
 import { focusCalendarDate } from './calendar.js';
 import { toMin, fromMin, DEFAULT_TRAINING_MIN } from '../logic/schedule.js';
 import { GOALS } from '../logic/program.js';
@@ -49,7 +53,15 @@ export function mountHome(root) {
 
   function suggestHtml(state, today) {
     if (!ui.target || ui.target < today) ui.target = defaultTargetDate(state.entries, today);
-    const { items, skippedParts } = buildSuggestions(state, ui.target, isAvailable);
+    const { items: raw, skippedParts } = buildSuggestions(state, ui.target, isAvailable);
+    // 痛みの記録に合わせる: 外す・入れ替える種目は出さず、軽くする種目は重さを下げる
+    const items = [];
+    for (const s of raw) {
+      const d = injuryDecision(s.exercise, ui.target);
+      if (d.action === 'remove' || d.action === 'replace') continue;
+      if (d.action === 'lighten' && s.plan) items.push({ ...s, original: s.plan, plan: scaleForInjury(s.exercise, s.plan, d.pct), reason: `${s.reason}。${d.reasons[0]}のため ${Math.round(d.pct * 100)}% に` });
+      else items.push(s);
+    }
     current = items;
     const addable = items.filter((i) => i.plan).length;
     const list = items.length
@@ -181,12 +193,43 @@ export function mountHome(root) {
     </section>`;
   }
 
+  // 今日のトレーニング: 予定の回ごとに「開始」ボタン。途中のものがあれば再開を先に出す。
+  function todayHtml(state, today) {
+    const pending = pendingWorkout();
+    if (pending) {
+      return `<section class="card today-workout">
+        <h2>トレーニングの途中です</h2>
+        <p class="prog-summary"><span>${esc(pending.names.slice(0, 4).join('・'))}${pending.names.length > 4 ? ' ほか' : ''}</span><span>${pending.done} / ${pending.total}種目 済み</span></p>
+        <button type="button" class="btn-primary wide first" data-action="wo-resume">▶ 続きから再開</button>
+        <button type="button" class="btn-ghost wide" data-action="wo-discard">途中の記録を破棄</button>
+      </section>`;
+    }
+    const groups = groupToday(state.entries, today);
+    if (!groups.length) return '';
+    return `<section class="card today-workout">
+      <h2>今日のトレーニング</h2>
+      ${groups
+        .map((g, i) => {
+          const names = g.entries.map((e) => getExercise(e.exerciseId)?.name).filter(Boolean);
+          const title = g.label || (g.time ? `${g.time}〜` : '今日の予定');
+          return `<div class="today-group">
+            <p class="prog-summary"><b>${esc(title)}</b><span>${g.time && g.label ? `${g.time}〜 ・ ` : ''}${names.length}種目: ${esc(names.join('・'))}</span></p>
+            <button type="button" class="btn-primary wide wo-start" data-action="wo-start" data-index="${i}">▶ 開始</button>
+          </div>`;
+        })
+        .join('')}
+    </section>`;
+  }
+
   function render() {
     const state = getState();
     const today = toDateStr(new Date());
     root.innerHTML = `
       <header class="page-head"><h1>ホーム</h1><span class="page-date">${formatDateJa(today)}</span></header>
+      ${rescheduleBannerHtml()}
+      ${injuryCheckHtml()}
       ${backupHtml(state, today)}
+      ${todayHtml(state, today)}
       ${summaryHtml(state, today)}
       ${programHtml(state)}
       <section class="card"><h2>インターバルタイマー</h2>${timerHtml()}</section>
@@ -195,21 +238,38 @@ export function mountHome(root) {
     refreshTimers();
   }
 
-  const planned = (s) => ({ id: null, date: ui.target, exerciseId: s.exercise.id, status: 'planned', plan: s.plan, actual: null, memo: '' });
+  // 痛みで軽くした提案は元の予定で入れ、調整は syncInjuryAdjustments に任せる(二重に軽くしない)
+  const planned = (s) => ({ id: null, date: ui.target, exerciseId: s.exercise.id, status: 'planned', plan: s.original || s.plan, actual: null, memo: '' });
 
   root.addEventListener('click', (ev) => {
     const t = ev.target.closest('[data-action]');
     if (!t) return;
+    if (handleRescheduleAction(t) || handleInjuryAction(t)) return render();
     const s = current[Number(t.dataset.index)];
     switch (t.dataset.action) {
+      case 'wo-start': {
+        const g = groupToday(getState().entries, toDateStr(new Date()))[Number(t.dataset.index)];
+        if (g) startWorkoutFor(g.entries.map((e) => e.id), { onChange: render });
+        break;
+      }
+      case 'wo-resume':
+        resumeWorkout({ onChange: render });
+        break;
+      case 'wo-discard':
+        if (!confirm('途中のトレーニングを破棄します。終えたセットも保存されません。よろしいですか？')) break;
+        discardWorkout();
+        render();
+        break;
       case 'add':
         upsertEntry(planned(s));
+        syncInjuryAdjustments();
         toast(`${formatDateJa(ui.target)}の予定に追加しました`);
         render();
         break;
       case 'add-all': {
         const items = current.filter((i) => i.plan);
         items.forEach((i) => upsertEntry(planned(i)));
+        syncInjuryAdjustments();
         toast(`${formatDateJa(ui.target)}の予定に${items.length}件追加しました`);
         render();
         break;
@@ -250,6 +310,8 @@ export function mountHome(root) {
   return {
     render() {
       ui.target = null;
+      checkMissed(); // 日付が変わってから開いたときにも振り替える
+      syncInjuryAdjustments();
       render();
     },
   };

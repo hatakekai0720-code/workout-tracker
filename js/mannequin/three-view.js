@@ -1,7 +1,7 @@
 // 3D マネキン(Three.js)。必要なときだけ描画し、動かしていない間は何もしない。
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { PARTS, COLORS, BODY_CENTER_Y } from './model.js';
+import { PARTS, COLORS, BODY_CENTER_Y, markerPoints } from './model.js';
 
 const DISTANCE = 3.65;
 const VIEWS = { front: 0, side: Math.PI / 2, back: Math.PI };
@@ -9,6 +9,31 @@ const TURN_MS = 350;
 const TAP_MOVE_PX = 8;
 const PAN_Y = [0.25, 1.6]; // 上下に動かせる範囲(見る中心の高さ、m)。足先〜頭
 const PAN_STEP = 0.3; // ▲▼ボタン1回で動かす量
+
+// 痛みの印: 黄色い三角に「!」。体に隠れないよう、いつも手前に描く
+function markTexture() {
+  const c = document.createElement('canvas');
+  c.width = 64;
+  c.height = 64;
+  const g = c.getContext('2d');
+  g.beginPath();
+  g.moveTo(32, 4);
+  g.lineTo(61, 58);
+  g.lineTo(3, 58);
+  g.closePath();
+  g.fillStyle = '#ffd21f';
+  g.fill();
+  g.lineWidth = 4;
+  g.strokeStyle = '#3a2a00';
+  g.stroke();
+  g.fillStyle = '#3a2a00';
+  g.font = 'bold 36px sans-serif';
+  g.textAlign = 'center';
+  g.fillText('!', 32, 52);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
 
 // 筋線維のすじ模様(白〜うすい灰色の縦じま)。色に掛け合わせるので、筋肉の色はそのまま残る。
 // 球の UV は縦(y 方向)に沿うので、すじは楕円体の長い方向に走る。
@@ -243,8 +268,29 @@ export function create3D(host, { onSelect }) {
   resize();
   setView('front', false);
 
+  // ---- 痛みの印 ----
+  const markTex = markTexture();
+  const markMaterial = new THREE.SpriteMaterial({ map: markTex, depthTest: false, transparent: true });
+  const marks = new THREE.Group();
+  marks.renderOrder = 10;
+  scene.add(marks);
+  function setMarkers(list) {
+    marks.clear();
+    for (const m of list || []) {
+      for (const [x, y, z] of markerPoints(m.part, m.side)) {
+        const sprite = new THREE.Sprite(markMaterial);
+        sprite.position.set(x, y, z);
+        sprite.scale.set(0.09, 0.09, 1);
+        sprite.renderOrder = 10;
+        marks.add(sprite);
+      }
+    }
+    requestDraw();
+  }
+
   return {
     mode: '3d',
+    setMarkers,
     setSelected(key) {
       selected = key;
       applyColors();
@@ -263,6 +309,8 @@ export function create3D(host, { onSelect }) {
       controls.dispose();
       sphere.dispose();
       fibers.dispose();
+      markTex.dispose();
+      markMaterial.dispose();
       shadow.geometry.dispose();
       shadow.material.map.dispose();
       shadow.material.dispose();

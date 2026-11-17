@@ -2,7 +2,7 @@
 // - アプリ本体はネットワーク優先(つながれば常に最新、だめならキャッシュ)
 // - フォントは変わらないのでキャッシュ優先(使った分だけ貯まる)
 // PRECACHE を変えたら VERSION を上げる(tests/sw.test.js がファイルの過不足を確かめる)。
-const VERSION = 'v16'; // js/ui/util.js の APP_VERSION とそろえる(テストで確認している)
+const VERSION = 'v19'; // js/ui/util.js の APP_VERSION とそろえる(テストで確認している)
 const SHELL = `shell-${VERSION}`;
 const FONTS = 'fonts-v1';
 const CDN = 'cdn-v1';
@@ -21,16 +21,21 @@ const PRECACHE = [
   'js/data/backup.js',
   'js/data/guides.js',
   'js/data/migrate.js',
+  'js/data/reschedule-log.js',
   'js/data/store.js',
+  'js/data/workout-session.js',
   'js/logic/dates.js',
+  'js/logic/injury.js',
   'js/logic/insights.js',
   'js/logic/musclemap.js',
   'js/logic/muscles.js',
   'js/logic/placement.js',
   'js/logic/program.js',
+  'js/logic/reschedule.js',
   'js/logic/schedule.js',
   'js/logic/suggest.js',
   'js/logic/training.js',
+  'js/logic/workout.js',
   'js/mannequin/index.js',
   'js/mannequin/model.js',
   'js/mannequin/svg-view.js',
@@ -45,16 +50,19 @@ const PRECACHE = [
   'js/views/event.js',
   'js/views/exercises.js',
   'js/views/guide.js',
+  'js/views/injury.js',
   'js/views/home.js',
   'js/views/program.js',
   'js/views/program/form.js',
   'js/views/program/place.js',
   'js/views/program/preview.js',
   'js/views/program/state.js',
+  'js/views/reschedule.js',
   'js/views/settings.js',
   'js/views/stats.js',
   'js/views/term.js',
   'js/views/timeline.js',
+  'js/views/workout.js',
   'vendor/chart.umd.min.js',
   'vendor/noto-sans-jp/noto-sans-jp.css',
   'icons/icon-192.png',
