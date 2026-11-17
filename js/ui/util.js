@@ -1,5 +1,5 @@
 // アプリの版。sw.js の VERSION とそろえる(テストで確認している)。設定画面のいちばん下に出す。
-export const APP_VERSION = 'v18';
+export const APP_VERSION = 'v19';
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 

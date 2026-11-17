@@ -1,5 +1,5 @@
 // 2D マネキン(SVG)。3D が使えない環境用。3D と同じ形状データを前後から平面に写して描く。
-import { PARTS, COLORS, silhouette } from './model.js';
+import { PARTS, COLORS, silhouette, markerPoints } from './model.js';
 
 const PX = 150; // 1m あたりのピクセル数
 const W = 150;
@@ -22,7 +22,7 @@ export function create2D(host, { onSelect }) {
           transform="rotate(${rot} ${cx} ${cy})" ${attrs} stroke="${COLORS.outline}" stroke-width="0.6"/>`;
       })
       .join('');
-    return `<figure><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="筋肉マップ(${back ? '後ろ' : '前'})">${shapes}</svg>
+    return `<figure><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="筋肉マップ(${back ? '後ろ' : '前'})" data-dir="${dir}">${shapes}<g data-marks></g></svg>
       <figcaption>${back ? '後ろ' : '前'}</figcaption></figure>`;
   };
   host.innerHTML = `<div class="mq-2d">${figure(false)}${figure(true)}</div>`;
@@ -50,6 +50,18 @@ export function create2D(host, { onSelect }) {
     setColors(map) {
       colors = map || {};
       applyColors();
+    },
+    // 痛みの印(⚠️)。marks: [{ part, side }]。前と後ろの両方に出す
+    setMarkers(marks) {
+      for (const svg of root.querySelectorAll('svg')) {
+        const dir = Number(svg.dataset.dir);
+        svg.querySelector('[data-marks]').innerHTML = (marks || [])
+          .flatMap((m) => markerPoints(m.part, m.side))
+          // 体の前側の印は前の図だけ、後ろ側(腰など)は後ろの図だけ。手足や関節は両方に出す
+          .filter(([, , z]) => (dir > 0 ? z > -0.05 : z < 0.05))
+          .map(([x, y]) => `<text class="mq-mark" x="${(W / 2 + dir * x * PX).toFixed(1)}" y="${((TOP - y) * PX + 5).toFixed(1)}" text-anchor="middle">⚠️</text>`)
+          .join('');
+      }
     },
     setView() {}, // 前後を並べて表示しているので切り替えは不要
     dispose() {

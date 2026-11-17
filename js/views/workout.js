@@ -11,6 +11,7 @@ import { computePRs, PR_LABELS, formatPR } from '../logic/insights.js';
 import { formatDuration } from '../logic/training.js';
 import { toDateStr } from '../logic/dates.js';
 import { openGuide } from './guide.js';
+import { injuryDecision } from './injury.js';
 import { esc, toast } from '../ui/util.js';
 
 const COUNTDOWN_SEC = 3; // 休憩の終わりの何秒前から鳴らすか
@@ -175,7 +176,8 @@ function swapHtml() {
   const it = currentItem(w);
   const ex = getExercise(it.exerciseId);
   const exclude = w.items.map((x) => x.exerciseId);
-  const list = swapCandidates(getState().exercises, ex, { musclesOf, isAvailable, exclude });
+  // 痛みの記録で外す・入れ替える種目は候補に出さない
+  const list = swapCandidates(getState().exercises, ex, { musclesOf, isAvailable, exclude }).filter((x) => ['ok', 'lighten'].includes(injuryDecision(x).action));
   return `<div class="wo-body">
       <p class="wo-ask">「${esc(ex.name)}」の代わり<span class="tag">${BODY_PARTS[ex.bodyPart] || ''}</span></p>
       <p class="hint">同じ部位で、持っている器具でできる種目です。効く筋肉が近い順に並べています。</p>

@@ -728,3 +728,16 @@ select:disabled { opacity: .55; }
 .rs-btns { display: flex; gap: 6px; margin-left: auto; }
 .rs-btns button { min-height: 38px; padding: 0 10px; font-size: 13px; }
 .rs-chosen { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--run); }
+.mq-mark { font-size: 13px; pointer-events: none; }
+
+/* ---- 痛み・ケガ ---- */
+.medical {
+  margin: 0 0 10px; padding: 8px 10px;
+  border: 1px solid var(--danger); background: var(--soft); font-size: 13px; font-weight: 700;
+}
+.injury-btn { margin: 8px 0 4px; }
+.injury-check .check-row + .check-row { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.injury-check .rs-title small { margin-left: 6px; font-size: 12px; font-weight: 400; color: var(--muted); }
+.check-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.check-btns button { min-height: 44px; padding: 0 4px; font-size: 14px; }
+.hint-link { display: inline-block; margin-top: 8px; font-size: 13px; }

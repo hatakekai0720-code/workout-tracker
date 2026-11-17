@@ -11,6 +11,7 @@ import { openProgram } from './program.js';
 import { startWorkoutFor, resumeWorkout, discardWorkout, pendingWorkout } from './workout.js';
 import { groupToday } from '../logic/workout.js';
 import { checkMissed, rescheduleBannerHtml, handleRescheduleAction } from './reschedule.js';
+import { injuryCheckHtml, handleInjuryAction, injuryDecision, scaleForInjury, syncInjuryAdjustments } from './injury.js';
 import { focusCalendarDate } from './calendar.js';
 import { toMin, fromMin, DEFAULT_TRAINING_MIN } from '../logic/schedule.js';
 import { GOALS } from '../logic/program.js';
@@ -52,7 +53,15 @@ export function mountHome(root) {
 
   function suggestHtml(state, today) {
     if (!ui.target || ui.target < today) ui.target = defaultTargetDate(state.entries, today);
-    const { items, skippedParts } = buildSuggestions(state, ui.target, isAvailable);
+    const { items: raw, skippedParts } = buildSuggestions(state, ui.target, isAvailable);
+    // 痛みの記録に合わせる: 外す・入れ替える種目は出さず、軽くする種目は重さを下げる
+    const items = [];
+    for (const s of raw) {
+      const d = injuryDecision(s.exercise, ui.target);
+      if (d.action === 'remove' || d.action === 'replace') continue;
+      if (d.action === 'lighten' && s.plan) items.push({ ...s, original: s.plan, plan: scaleForInjury(s.exercise, s.plan, d.pct), reason: `${s.reason}。${d.reasons[0]}のため ${Math.round(d.pct * 100)}% に` });
+      else items.push(s);
+    }
     current = items;
     const addable = items.filter((i) => i.plan).length;
     const list = items.length
@@ -218,6 +227,7 @@ export function mountHome(root) {
     root.innerHTML = `
       <header class="page-head"><h1>ホーム</h1><span class="page-date">${formatDateJa(today)}</span></header>
       ${rescheduleBannerHtml()}
+      ${injuryCheckHtml()}
       ${backupHtml(state, today)}
       ${todayHtml(state, today)}
       ${summaryHtml(state, today)}
@@ -228,12 +238,13 @@ export function mountHome(root) {
     refreshTimers();
   }
 
-  const planned = (s) => ({ id: null, date: ui.target, exerciseId: s.exercise.id, status: 'planned', plan: s.plan, actual: null, memo: '' });
+  // 痛みで軽くした提案は元の予定で入れ、調整は syncInjuryAdjustments に任せる(二重に軽くしない)
+  const planned = (s) => ({ id: null, date: ui.target, exerciseId: s.exercise.id, status: 'planned', plan: s.original || s.plan, actual: null, memo: '' });
 
   root.addEventListener('click', (ev) => {
     const t = ev.target.closest('[data-action]');
     if (!t) return;
-    if (handleRescheduleAction(t)) return render();
+    if (handleRescheduleAction(t) || handleInjuryAction(t)) return render();
     const s = current[Number(t.dataset.index)];
     switch (t.dataset.action) {
       case 'wo-start': {
@@ -251,12 +262,14 @@ export function mountHome(root) {
         break;
       case 'add':
         upsertEntry(planned(s));
+        syncInjuryAdjustments();
         toast(`${formatDateJa(ui.target)}の予定に追加しました`);
         render();
         break;
       case 'add-all': {
         const items = current.filter((i) => i.plan);
         items.forEach((i) => upsertEntry(planned(i)));
+        syncInjuryAdjustments();
         toast(`${formatDateJa(ui.target)}の予定に${items.length}件追加しました`);
         render();
         break;
@@ -298,6 +311,7 @@ export function mountHome(root) {
     render() {
       ui.target = null;
       checkMissed(); // 日付が変わってから開いたときにも振り替える
+      syncInjuryAdjustments();
       render();
     },
   };

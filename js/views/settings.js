@@ -18,8 +18,9 @@ import { BACKUP_REASONS, AUTO_BACKUP_MAX } from '../data/autobackup.js';
 import { toDateStr, formatDateJa } from '../logic/dates.js';
 import { parseBackup } from '../data/backup.js';
 import { applyTheme } from '../ui/theme.js';
-import { musclesOf, syncCatalog, guideFor, isAvailable, ownedEquipment, CATEGORIES, EQUIPMENT } from '../data/guides.js';
+import { musclesOf, stressOf, syncCatalog, guideFor, isAvailable, ownedEquipment, CATEGORIES, EQUIPMENT } from '../data/guides.js';
 import { MUSCLES, MUSCLE_KEYS, cleanMuscles } from '../logic/muscles.js';
+import { JOINTS } from '../logic/injury.js';
 import { EVENT_KINDS, timeOptions } from '../logic/schedule.js';
 import { esc, toast, APP_VERSION } from '../ui/util.js';
 
@@ -312,6 +313,9 @@ export function mountSettings(root) {
             return `<button type="button" class="chip ${state}" data-muscle="${k}" aria-pressed="${state !== ''}">${MUSCLES[k]}${mark}</button>`;
           }).join('')}</div>
         </div>
+        <div class="field"><span>負担がかかる関節(痛みの記録で使います。タップで選ぶ)</span>
+          <div class="chip-picker">${Object.entries(JOINTS).map(([k, v]) => `<button type="button" class="chip ${x.stress.includes(k) ? 'main' : ''}" data-joint="${k}" aria-pressed="${x.stress.includes(k)}">${v}</button>`).join('')}</div>
+        </div>
         ${used ? '<p class="hint">すでに記録があるため、種類と記録のしかたは変更できません。</p>' : ''}
         <p class="error" role="alert" hidden></p>
         ${
@@ -330,8 +334,8 @@ export function mountSettings(root) {
 
   function openDialog(id) {
     editing = id
-      ? { ...getExercise(id), muscles: musclesOf(getExercise(id)) }
-      : { id: null, name: '', kind: 'strength', bodyPart: 'chest', loadType: 'weighted', archived: false, muscles: { main: [], sub: [] } };
+      ? { ...getExercise(id), muscles: musclesOf(getExercise(id)), stress: [...stressOf(getExercise(id))] }
+      : { id: null, name: '', kind: 'strength', bodyPart: 'chest', loadType: 'weighted', archived: false, muscles: { main: [], sub: [] }, stress: [] };
     renderDialog();
     dlg.showModal();
   }
@@ -362,6 +366,13 @@ export function mountSettings(root) {
   });
 
   dlg.addEventListener('click', (ev) => {
+    const joint = ev.target.closest('[data-joint]');
+    if (joint) {
+      const k = joint.dataset.joint;
+      editing.stress = editing.stress.includes(k) ? editing.stress.filter((j) => j !== k) : [...editing.stress, k];
+      renderDialog();
+      return;
+    }
     const chip = ev.target.closest('[data-muscle]');
     if (chip) {
       // なし → メイン → サブ → なし
@@ -397,11 +408,23 @@ export function mountSettings(root) {
     }
   });
 
+  // カタログと同じ関節なら保存しない(カタログの更新がそのまま反映されるように)
+  function stressField() {
+    const catalog = guideFor(editing)?.stress;
+    const same = catalog && catalog.length === editing.stress.length && catalog.every((k) => editing.stress.includes(k));
+    if (same) {
+      delete editing.stress;
+      return {};
+    }
+    return { stress: Object.keys(JOINTS).filter((k) => editing.stress.includes(k)) };
+  }
+
   dlg.addEventListener('submit', (ev) => {
     ev.preventDefault();
     const name = editing.name.trim();
     if (!name) return showDialogError('種目名を入力してください');
     const run = editing.kind === 'run';
+    const stress = stressField(); // カタログと同じなら editing から消す(先に呼ぶ)
     // editing は元の種目を写したものなので、メモや自分で書いた解説もそのまま残る
     saveExercise({
       ...editing,
@@ -409,6 +432,7 @@ export function mountSettings(root) {
       bodyPart: run ? null : editing.bodyPart || 'chest',
       loadType: run ? null : editing.loadType || 'weighted',
       muscles: cleanMuscles(editing.muscles),
+      ...stress,
     });
     closeDialog();
   });

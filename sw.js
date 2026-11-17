@@ -2,7 +2,7 @@
 // - アプリ本体はネットワーク優先(つながれば常に最新、だめならキャッシュ)
 // - フォントは変わらないのでキャッシュ優先(使った分だけ貯まる)
 // PRECACHE を変えたら VERSION を上げる(tests/sw.test.js がファイルの過不足を確かめる)。
-const VERSION = 'v18'; // js/ui/util.js の APP_VERSION とそろえる(テストで確認している)
+const VERSION = 'v19'; // js/ui/util.js の APP_VERSION とそろえる(テストで確認している)
 const SHELL = `shell-${VERSION}`;
 const FONTS = 'fonts-v1';
 const CDN = 'cdn-v1';
@@ -25,6 +25,7 @@ const PRECACHE = [
   'js/data/store.js',
   'js/data/workout-session.js',
   'js/logic/dates.js',
+  'js/logic/injury.js',
   'js/logic/insights.js',
   'js/logic/musclemap.js',
   'js/logic/muscles.js',
@@ -49,6 +50,7 @@ const PRECACHE = [
   'js/views/event.js',
   'js/views/exercises.js',
   'js/views/guide.js',
+  'js/views/injury.js',
   'js/views/home.js',
   'js/views/program.js',
   'js/views/program/form.js',

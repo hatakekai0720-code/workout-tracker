@@ -45,6 +45,7 @@ function defaultState() {
       { id: 'tpl_late', title: '遅番', kind: 'work', start: '17:00', end: '22:00' },
     ],
     terms: [],
+    injuries: [], // 痛み・ケガの記録。形は js/logic/injury.js を参照
     program: null, // 自動メニュー作成で保存したプログラム(1つだけ)。形は js/program.js を参照
   };
 }
@@ -275,6 +276,34 @@ export function applyWorkoutSaves(saves) {
   }
   save();
   return ids;
+}
+
+// ---- 痛み・ケガ(js/logic/injury.js) ----
+
+export function saveInjury(inj) {
+  const list = state.injuries || [];
+  const i = list.findIndex((x) => x.id === inj.id);
+  if (i >= 0) list[i] = inj;
+  else list.push({ ...inj, id: inj.id || makeId('inj') });
+  state.injuries = list;
+  save();
+}
+
+export function deleteInjury(id) {
+  state.injuries = (state.injuries || []).filter((x) => x.id !== id);
+  save();
+}
+
+// 記録の項目をまとめて書き換える。changes: [{ id, set: { 項目: 値 }, unset: [項目] }]
+export function patchEntries(changes) {
+  if (!changes.length) return;
+  for (const c of changes) {
+    const e = state.entries.find((x) => x.id === c.id);
+    if (!e) continue;
+    Object.assign(e, c.set);
+    for (const k of c.unset) delete e[k];
+  }
+  save();
 }
 
 // ---- 振り替え(js/logic/reschedule.js) ----

@@ -138,3 +138,33 @@ export function silhouette(part) {
   const diff = Math.hypot((a - c) / 2, b);
   return { rx: Math.sqrt(mid + diff), ry: Math.sqrt(Math.max(mid - diff, 0)), angle: 0.5 * Math.atan2(2 * b, a - c) };
 }
+
+// ---- 痛みの印(⚠️)を置く位置 ----
+// 本人の右は x が負の側(体の前は z の正なので、前から見ると画面の左が本人の右)。
+
+function centroid(muscle, sign) {
+  const list = PARTS.filter((p) => p.muscle === muscle && (sign === 0 || Math.sign(p.pos[0]) === sign));
+  const n = list.length || 1;
+  return [0, 1, 2].map((i) => list.reduce((a, p) => a + p.pos[i], 0) / n);
+}
+const lerp = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+
+// 関節の位置: 近くの筋肉の中心から決める
+const JOINT_POINT = {
+  shoulder: (s) => centroid('deltSide', s),
+  elbow: (s) => lerp(centroid('biceps', s), centroid('forearms', s), 0.5),
+  wrist: (s) => lerp(centroid('biceps', s), centroid('forearms', s), 1.6),
+  hip: (s) => centroid('glutes', s),
+  knee: (s) => lerp(centroid('quads', s), centroid('calves', s), 0.5),
+  ankle: (s) => lerp(centroid('quads', s), centroid('calves', s), 1.55),
+  neck: () => [0, 1.54, 0.05],
+  lowerBack: () => centroid('erectors', 0),
+};
+
+// part(筋肉か関節のキー)と side('left'|'right'|'both'|'center')から、印を置く点 [x, y, z] の一覧
+export function markerPoints(part, side) {
+  const point = JOINT_POINT[part] || ((s) => centroid(part, s));
+  if (part === 'neck' || part === 'lowerBack' || side === 'center') return [point(0)];
+  const signs = side === 'right' ? [-1] : side === 'left' ? [1] : [-1, 1];
+  return signs.map((s) => point(s)).filter((p) => p.every(Number.isFinite));
+}

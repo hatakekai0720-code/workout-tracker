@@ -91,8 +91,8 @@ export function mountCalendar(root) {
           <span class="entry-mark">${done ? '✓' : e.status === 'skipped' ? '－' : ''}</span>
           <span class="entry-main">
             <span class="entry-name">${esc(ex.name)}${tag}</span>
-            <span class="entry-sub">${range && !key ? `${range} ・ ` : ''}${done ? '' : e.status === 'skipped' ? (e.skipReason === 'sick' ? '休んだ ' : 'スキップ ') : '予定 '}${esc(summary)}</span>
-            ${e.adjustReason && !done ? `<span class="entry-sub adjusted">${ADJUST_LABELS[e.adjustReason] || '軽め'}(元の予定: ${esc(describePlan(ex, e.basePlan).replace(/^0kg × /, ''))})</span>` : ''}
+            <span class="entry-sub">${range && !key ? `${range} ・ ` : ''}${done ? '' : e.status === 'skipped' ? ({ sick: '休んだ ', pain: '痛みのため外す ' }[e.skipReason] || 'スキップ ') : '予定 '}${esc(summary)}</span>
+            ${e.adjustReason && e.basePlan && !done ? `<span class="entry-sub adjusted">${ADJUST_LABELS[e.adjustReason] || '軽め'}(元の予定: ${e.swappedFrom && getExercise(e.swappedFrom) ? `${esc(getExercise(e.swappedFrom).name)} ` : ''}${esc(describePlan(e.swappedFrom ? getExercise(e.swappedFrom) || ex : ex, e.basePlan).replace(/^0kg × /, ''))})</span>` : ''}
             ${e.memo && !done ? `<span class="entry-sub">${esc(e.memo)}</span>` : ''}
             ${pr ? `<span class="entry-pr">🏆 自己ベスト ${pr.join('・')}</span>` : ''}
           </span>

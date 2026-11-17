@@ -52,6 +52,9 @@ export async function loadGuides() {
 
 export const guideFor = (ex) => (ex.guideId && catalog[ex.guideId]) || null;
 
+// 種目で負担がかかる関節(js/logic/injury.js の JOINTS)。種目マスタで設定していればそれを、なければカタログの値を使う。
+export const stressOf = (ex) => (Array.isArray(ex.stress) ? ex.stress : guideFor(ex)?.stress || []);
+
 // 種目の効く筋肉。種目マスタで設定していればそれを、なければカタログの初期値を使う。
 export function musclesOf(ex) {
   return cleanMuscles(ex.muscles ?? guideFor(ex)?.muscles);
